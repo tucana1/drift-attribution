@@ -208,19 +208,18 @@ discrimination while improving outcomes; that is the premise.
 
 \paragraph{Decomposition.} Write the observed change as
 \begin{equation}
-\Delta R = \underbrace{\Delta_X}_{\text{covariate}} +
-\underbrace{\Delta_{Y|X,A}}_{\text{outcome mechanism, policy held at } \pi_0} +
-\underbrace{\Delta_{\pi}}_{\text{model-mediated policy, } \pi_0 \to \pi_1 \text{ in } e_1}
-\;(+ \text{interaction}),
+\Delta R = \Delta_X^{\pi_0} + \Delta_{Y|X,A}^{\pi_0}
+          + \Delta_{\pi}^{e_1},
 \label{eq:decomp}
 \end{equation}
 where $\Delta_\pi = R_{e_1}(f; \pi_1) - R_{e_1}(f; \pi_0)$ is a policy contrast
 evaluated entirely within the post-deployment environment, so it never requires
 $e_0$ outcomes under $e_1$ actions. The first two terms are exogenous and
 remain a Shapley game over $\{P(X), P(Y \mid X, A)\}$ with the policy fixed at
-$\pi_0$, which is well defined because $\pi_0$ has support in both
-environments. \todo{State the order-dependence of the split and why the policy
-term is placed last (it is the only term that is a causal descendant of $f$).}
+$\pi_0$, which is well defined when the needed standard-care responses have
+support in both environments. The exact identity assigns interactions by a
+policy-last ordering; no residual is omitted. The policy is last because its
+post-deployment value is the decision contrast in the current patient mix.
 
 \paragraph{Output.} A three-term decomposition with uncertainty intervals and a
 sensitivity analysis, not a categorical label.
@@ -248,6 +247,22 @@ action, timing, outcome.
 $\rhat = \tau$.
 (4) Site or physician practice variation: identified under an instrument-type
 assumption.
+
+\begin{table*}[t]
+\centering\small
+\caption{Identification by rollout design. The $X$ column concerns the mean split. ``Conditional'' requires comparable site trends and overlap in rollout timing. G2 measures bias of $+0.043$ in the induced $X$ mean and $-0.0027$ in the retrospective Brier term under characteristic-linked rollout with site trends.}
+\label{tab:identification}
+\begin{tabular}{llll}
+\toprule
+Design & $X$ mean split & Prospective alert & Retrospective deployment\\
+\midrule
+Routine pre/post & No & No & No\\
+Patient randomised alert arm & No & Yes & No\\
+Random-order site wedge & Yes, with site IDs & No & Yes, supported cohorts\\
+Characteristic-linked site order & Conditional (G2) & No & Conditional (G2)\\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \begin{proposition}[Local-to-global gap under threshold discontinuity]
 \label{prop:rd}
@@ -292,6 +307,30 @@ ratio estimated by a classifier; (iii) the proposed decomposition
 (Section~\ref{sec:estimand}) with the policy term identified from a randomised
 unalerted arm ($30\%$ of post-deployment patients). All results use 20 to 30
 seeds and $n = 20{,}000$ per environment.
+
+\begin{table*}[t]
+\centering\small
+\caption{Information budget for the reported estimators. ``Pre'' and ``post'' mean observed samples; $A$ is the recorded action. Oracle means true simulator mechanism probabilities, not observed data. The original deployed score is available to every method. Site designs also require site IDs and rollout dates; the G2 Brier-scale $X$ split additionally assumes a Gaussian location shift.}
+\label{tab:information}
+\begin{tabular}{llllll}
+\toprule
+Estimator & Pre sample & Post sample & Action log & Randomised arm & Oracle\\
+\midrule
+Marginal two-player, estimated ratio & $(X,Y)$ & $(X,Y)$ & No & No & No\\
+Marginal two-player, oracle ratios & $(X,Y)$ & None & No & No & Yes\\
+Union graph IS, raw or clipped & $(X,A,Y)$ & None & Yes & No & Yes\\
+Policy contrast, randomised arm & $(X,Y)$ & $(X,Y)$ & No & Yes & No\\
+Policy contrast, oracle weights & $(X,Y)$ & $(X,A,Y)$ & Yes & No & Yes\\
+Site crossover difference in differences & $(X,Y)$ & $(X,Y)$ & No & No & No\\
+Threshold discontinuity, local ITT & None & $(\rhat,Y)$ & No & No & No\\
+Treatment-interaction update & Existing score & $(X,A,Y)$ & Yes & No & No\\
+\bottomrule
+\end{tabular}
+\end{table*}
+The oracle rows validate targets in simulation. They are not deployable
+estimators. The randomised-arm row uses assignment and outcome, while the site
+row needs a credible site-level comparison; neither observes counterfactual
+outcomes directly.
 
 \paragraph{Two references, not one (Figure~\ref{fig:attr}).} With oracle
 coalition values, the symmetric Shapley share of the policy player and the
@@ -339,23 +378,23 @@ $\varepsilon \ge 10^{-2}$ clipping is a no-op. The proposed decomposition is
 $+0.028 \pm 0.003$ at every $\varepsilon$.
 
 \paragraph{F3: acting on the misattribution (Figure~\ref{fig:retrain}).}
-Retraining $f$ on post-deployment $(X, Y)$ and redeploying at the same
-threshold converges to a period-2 limit cycle in $20$ of $20$ seeds: the alert
-rate alternates between $29\%$ and $9\%$ (from $39.5\%$), events averted
-relative to standard care alternate between $7.6$ and $0.1$ percentage points
-(from $11.5$), and the observed AUROC alternates between $0.66$ and $0.74$
-(from $0.64$). Events averted and observed AUROC oscillate in antiphase: the
-round in which the dashboard reports its best discrimination is the round in
-which the model averts nothing. This is an instance of the failure mode \citet{kabra2024limitations} show to be unavoidable for naive
-retraining under performativity, produced here by a specific misattribution.
-Three corrections preserve the $11.5$ points. Retraining on the unalerted
-subpopulation ($\rhat \le \tau_r$) needs no action log, but extrapolates across
-the threshold: it works because the model class is well specified and alerts
-do not change treatment below the threshold, and neither assumption is
-testable from deployed data. Retraining on untreated patients, or conditioning
-on $A$ and predicting at $A = 0$, requires action logs and needs neither
-assumption. Logging is therefore not the only correction; it is the one that
-does not rest on an untestable assumption.
+Figure~\ref{fig:retrain} compares five update rules over eight rounds with each
+rule's alert rate held at the original rate. Both panels use the same
+standard-care reference and vertical scale. Under homogeneous treatment
+effects ($\kappa=0$), round-eight benefit is $11.397$ percentage points for
+keeping the original score and $11.391$ for conditioning on treatment and its
+covariate interactions. At $\kappa=2$, naive refitting retains $5.531$ points,
+versus $8.144$ for keeping the score, $8.135$ for unalerted regression, $8.152$
+for untreated regression, and $8.146$ for the interaction correction. The
+interaction correction is $2.615$ points above naive refitting in paired
+round-eight comparisons (Monte Carlo SE $0.041$). It does not outperform the
+other two corrections in this design. Unalerted regression extrapolates across
+the alert threshold; untreated regression and the interaction correction use
+the action log and assume the recorded covariates suffice to adjust treatment
+selection. The interaction model also assumes the treatment response is
+correctly specified. Holding the alert rate fixed alone does not repair naive
+refitting under heterogeneous effects. The earlier fixed-threshold result is
+retained in the saved Experiment C output and is not a convergence claim.
 
 \paragraph{F4: deployment also moves the patient mix
 (Figure~\ref{fig:triage}).} Adding a triage effect, a covariate shift caused by
@@ -371,9 +410,16 @@ contrast (switch the alert off in the current mix), which the keep-or-retrain
 decision needs, grows only to $+0.043$; the randomised arm recovers the
 prospective one at every triage level. Patient-level randomisation cannot
 separate exogenous from deployment-caused mix shift, because both arms draw
-from the post-deployment referral stream; a site-level stepped-wedge rollout
-can, because undeployed sites retain the old mix
-(Section~\ref{sec:ident}). We state this as a limitation of the decomposition.
+from the post-deployment referral stream. A site rollout supplies undeployed
+comparisons only if site identities and rollout timing are recorded. In
+Experiment G2, sites persist across six periods. With random rollout order,
+the mean bias of the crossover estimate of the retrospective Brier term is
+$-0.00075$; with characteristic-linked rollout and site-specific trends it is
+$-0.00267$. The induced covariate-mean shift is $0.25$ per coordinate, but the
+same comparison estimates $0.293$ in the latter setting, while the exogenous
+increment is estimated as $0.072$ against $0.114$. These are biases of the
+specified comparison, not a universal correction by site-level rollout
+(Section~\ref{sec:ident}; Appendix~\ref{app:sites}).
 
 \paragraph{F5: discrimination and utility move in opposite directions
 (Figure~\ref{fig:utility}).} Across treatment effect and adherence, observed
@@ -403,10 +449,13 @@ Middle: effective sample size of the policy weights. Right: at
 $\varepsilon = 0$ the bias of the union-graph estimator is constant in $n$ while
 its standard error shrinks.}\label{fig:positivity}\end{figure*}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig3_retrain.pdf}
-\caption{Retrain and redeploy under performative success, eight rounds, arms
-matched on the same patient draws. Naive retraining converges to a period-2
-cycle in which events averted and observed AUROC oscillate in
-antiphase.}\label{fig:retrain}\end{figure*}
+\caption{Five update rules with the original alert rate held on independent
+calibration patients. Each panel shows expected events averted versus its
+scenario-specific standard care, on a shared vertical scale. Left:
+$\kappa=0$; right: $\kappa=2$. Twenty independent seeds per panel, eight
+rounds, and matched patient draws across rules within each seed. Shading gives
+$1.96$ Monte Carlo SEs of the across-seed mean. The dashed horizontal line is
+standard care.}\label{fig:retrain}\end{figure*}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig4_triage.pdf}
 \caption{Deployment-caused covariate shift (triage). Left: attribution to
 $P(X)$ by the truth, the monitor and the proposed $X$ term. Right: retrospective
@@ -463,6 +512,67 @@ evaluation of patient outcomes.
 \section{Threshold-discontinuity experiment}
 \label{app:rd}
 \todo{Figure and text for the RD experiment (merged\_expE): local jump, effect curve, bounds; ITT scale; dilution by treated suspicious patients below the threshold.}
+
+\section{Robustness of Experiments A and B}
+\label{app:robustness}
+The deployed score remains logistic-linear. Additional covariates enter the
+linear score, and in the misspecified cells the true outcome logit also includes
+$0.65\{X_1X_3+0.3(X_3^2-1)\}$. Experiment A repeats S1--S4; Experiment B
+repeats the positivity continuum and an independent sample-size sweep at
+$\varepsilon=0$. Each row uses an independent seed block, 12 replications of
+$12{,}000$ patients per environment, and a $120{,}000$-patient oracle reference.
+
+\begin{table}[h]
+\centering\scriptsize
+\caption{S3 attribution and $\varepsilon=0$ bias. The union-graph bias at
+$n=96{,}000$ is relative to its oracle Shapley target. Its Monte Carlo SE is
+at most $0.00013$ across 12 independent seeds. All values are Brier units.}
+\label{tab:robustness}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrr}
+\toprule
+Setting & True $\Delta R$ & Naive $Y|X$ & E3 $\pi$ & Union bias\\
+\midrule
+$d=10$, linear  & 0.03134 & 0.03101 & 0.03099 & $-0.03957$\\
+$d=10$, nonlinear & 0.02803 & 0.02645 & 0.02827 & $-0.03644$\\
+$d=20$, linear  & 0.03108 & 0.03062 & 0.03153 & $-0.04005$\\
+$d=20$, nonlinear & 0.02860 & 0.02789 & 0.02898 & $-0.03619$\\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+F1 survives in all four settings: with no action player, nearly the entire S3
+change is booked to the marginal outcome mechanism. F2 also survives: the
+$\varepsilon=0$ union-graph bias remains between $-0.036$ and $-0.040$ as
+sample size rises from $6{,}000$ to $96{,}000$; the full independent-seed
+sweeps and all S1--S4 results are in \texttt{merged\_expAB\_robustness.json}.
+
+\section{Persistent-site stepped wedge}
+\label{app:sites}
+Experiment G2 follows 48 sites for six periods. Sites cross at periods 2--5;
+the period-5 cohort supplies not-yet-deployed controls for the earlier three
+crossovers. The recorded site characteristic affects case mix and baseline
+outcome risk. In two settings it also affects rollout priority, and in one of
+those it affects the site-specific covariate trend. A crossover difference in
+differences estimates the retrospective Brier term and separates changes in
+the first-two-coordinate mean of $X$ into a common trend and a deployment
+increment. For Brier-scale $X$ terms, an additional estimator reweights
+observed pre-rollout losses under a Gaussian location shift, with site means
+and covariance estimated from observed covariates. Simulator counterfactuals
+are used only to measure bias.
+With random rollout order, retrospective bias is $-0.00075$ (Monte Carlo SE
+$0.00038$). Characteristic-linked order with a common covariate trend yields
+$-0.00535$ ($0.00033$), even though the estimated covariate-mean split is
+nearly unbiased. When site-specific trends also follow the characteristic,
+retrospective bias is $-0.00267$ ($0.00044$), and the induced and exogenous
+covariate-mean biases are $+0.04311$ and $-0.04229$. These results concern the
+supported crossover cohorts. They do not identify the final cohort's effect
+without an additional control period or assumption.
+The Brier-scale $X$ split has its own estimator error: the induced and
+exogenous components have biases $-0.00209$ and $+0.00237$ with random order,
+and $+0.00107$ and $-0.00087$ with characteristic-linked order and site trends.
+Random rollout does not remove the finite-sample and location-model error of
+this reweighting step.
 
 \section{Proofs}
 \todo{Proposition~\ref{prop:absence}: exhibit $x, a$ with support mismatch;

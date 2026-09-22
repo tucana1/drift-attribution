@@ -45,16 +45,8 @@ ax = axes[2]; n = [int(r["n"]) for r in ns]; ax.errorbar(n, [float(r["pi"]) for 
 ax.axhline(float(ns[0]["truth_pi"]), color="k", ls="--", lw=0.8, label="truth"); ax.axhline(0, color=CG, lw=0.4); ax.set_xscale("log"); ax.set_xlabel("$n$ (pre-deployment sample)"); ax.set_title("more data, same wrong answer")
 ax.legend(fontsize=5.5, frameon=False); plt.tight_layout(); plt.savefig(F + "fig2_positivity.pdf"); plt.close()
 
-# ------------------------------------------------------------ Fig 3: retrain and redeploy, 8 rounds, 5 arms
-C = json.load(open(F + "merged_expC.json")); base = np.mean([r["base"] for r in C])
-fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.2))
-arms = [("keep", "keep $f$", CP, "-"), ("retrain", "naive retrain", CY, "-"), ("unalerted", "retrain on $\\hat r \\leq \\tau$ (no action log)", "#CCBB44", "--"),
-        ("untreated", "retrain on $A = 0$ (action log)", "#66CCEE", "--"), ("cond", "retrain on $(X, A)$, predict at $A{=}0$", CX, ":")]
-for arm, lab, c, ls in arms:
-    ev = np.array([[t[0] for t in r[arm]] for r in C]); al = np.array([[t[1] for t in r[arm]] for r in C]); au = np.array([[t[2] for t in r[arm]] for r in C]); t = np.arange(1, ev.shape[1] + 1)
-    for ax, yv, name in zip(axes, [100 * (base - ev), 100 * al, au], ["events averted vs standard care (pp)", "alert rate (%)", "observed AUROC, deployed population"]):
-        ax.errorbar(t, yv.mean(0), yv.std(0), marker="o", ms=2.5, lw=1, ls=ls, capsize=1.5, color=c, label=lab); ax.set_title(name); ax.set_xticks(t); ax.set_xlabel("deployment round")
-axes[0].legend(fontsize=5.5, frameon=False, loc="center right"); plt.tight_layout(); plt.savefig(F + "fig3_retrain.pdf"); plt.close()
+# Figure 3 is generated from merged_expH.json by make_figure3_E3.py.
+import make_figure3_E3
 
 # ------------------------------------------------------------ Fig 4: triage axis
 Fj = json.load(open(F + "merged_expF.json"))
