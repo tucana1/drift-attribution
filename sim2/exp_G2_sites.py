@@ -4,6 +4,21 @@ The reported estimator is a cohort-at-crossover difference in differences
 against not-yet-deployed sites. It uses observed Brier losses and covariate
 means. Simulator counterfactuals are used only to measure its bias. The last
 cohort serves as a control and has no concurrent control at its own crossover.
+
+Two estimators of the Brier-scale X split are reported.
+  plug-in      (first version) reweights the switching site's own pre-rollout
+               losses to the controls' average covariate shift (exogenous part)
+               and to its own observed shift (total). It imputes the average
+               trend into each site's loss curve, so it is biased whenever
+               covariate trends are site specific, even with random rollout.
+  DiD-anchored takes the exogenous part from the controls' observed loss
+               change (the control arm of the difference in differences) and
+               the induced part as the reweighted loss change at the site's
+               own total shift minus that control change. With random rollout
+               both parts are unbiased under site-specific trends; with
+               characteristic-linked rollout they inherit the DiD bias.
+Settings form a 2 x 2 design: rollout order (random or linked to the site
+characteristic) by covariate trend (common or site specific).
 """
 from __future__ import annotations
 
@@ -15,6 +30,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import summarize, write_json
 from dgp import p_treat, r_hat, sigmoid, suspicion
 from merged import make_cfg
 
@@ -103,6 +119,7 @@ def run_seed(seed, row_index, sites, n, rho, trend, triage, root_seed):
         "x_exogenous_mean_est", "x_exogenous_mean_truth",
         "x_endogenous_loss_est", "x_endogenous_loss_truth",
         "x_exogenous_loss_est", "x_exogenous_loss_truth",
+        "x_endogenous_loss_did_est", "x_exogenous_loss_did_est",
         "policy_on_current_x_truth",
     )}
     for t in COHORTS[:-1]:
@@ -122,6 +139,10 @@ def run_seed(seed, row_index, sites, n, rho, trend, triage, root_seed):
             measurements["x_exogenous_mean_truth"].append(true_site[j]["x_exogenous_mean"])
             measurements["x_exogenous_loss_est"].append(exogenous_loss - observed_loss[j, t - 1])
             measurements["x_endogenous_loss_est"].append(total_shift_loss - exogenous_loss)
+            # DiD-anchored split: exogenous part from the controls' loss change.
+            measurements["x_exogenous_loss_did_est"].append(control_loss_change)
+            measurements["x_endogenous_loss_did_est"].append(
+                total_shift_loss - observed_loss[j, t - 1] - control_loss_change)
             for key in ("x_endogenous_loss", "x_exogenous_loss", "policy_on_current_x"):
                 measurements[key + "_truth"].append(true_site[j][key])
     out = {key: float(np.mean(value)) for key, value in measurements.items()}
@@ -130,19 +151,28 @@ def run_seed(seed, row_index, sites, n, rho, trend, triage, root_seed):
     return out
 
 
+ESTIMATES = (("retro", "retro"), ("x_endogenous_mean", "x_endogenous_mean"),
+             ("x_exogenous_mean", "x_exogenous_mean"), ("x_endogenous_loss", "x_endogenous_loss"),
+             ("x_exogenous_loss", "x_exogenous_loss"), ("x_endogenous_loss_did", "x_endogenous_loss"),
+             ("x_exogenous_loss_did", "x_exogenous_loss"))
+
+
 def summarize_runs(runs):
     summary = {}
-    for target in ("retro", "x_endogenous_mean", "x_exogenous_mean",
-                   "x_endogenous_loss", "x_exogenous_loss"):
-        estimates = np.array([r[target + "_est"] for r in runs])
+    for est, target in ESTIMATES:
+        estimates = np.array([r[est + "_est"] for r in runs])
         truths = np.array([r[target + "_truth"] for r in runs])
         bias = estimates - truths
-        summary[target] = {
+        interval = summarize(bias, seed=len(summary))
+        summary[est] = {
+            "target": target,
             "estimate_mean": float(estimates.mean()),
             "truth_mean": float(truths.mean()),
             "bias_mean": float(bias.mean()),
             "bias_mcse": float(bias.std(ddof=1) / np.sqrt(len(runs))),
             "bias_sd": float(bias.std(ddof=1)),
+            "bias_ci95": interval["ci95"],
+            "relative_bias": float(bias.mean() / truths.mean()),
         }
     for target in ("x_endogenous_loss", "x_exogenous_loss", "policy_on_current_x"):
         summary[target + "_truth_mean"] = float(np.mean([r[target + "_truth"] for r in runs]))
@@ -150,8 +180,9 @@ def summarize_runs(runs):
     return summary
 
 
-def run(seeds=100, sites=48, n_per_site_period=400, triage=0.25, root_seed=2026092205):
+def run(seeds=200, sites=48, n_per_site_period=400, triage=0.25, root_seed=2026092905):
     settings = (
+        ("random_order_common_trend", 0.0, 0.0),
         ("random_order_site_trend", 0.0, 0.04),
         ("correlated_order_common_trend", 0.85, 0.0),
         ("correlated_order_site_trend", 0.85, 0.04),
@@ -165,7 +196,7 @@ def run(seeds=100, sites=48, n_per_site_period=400, triage=0.25, root_seed=20260
                      "summary": summarize_runs(runs), "runs": runs})
         print(f"Finished {name}", flush=True)
     return {
-        "design": "Same sites in six periods; four site cohorts roll out at periods 2-5. Crossover effects at periods 2-4 are compared with not-yet-deployed controls. Early rollout priority may correlate with a fixed site characteristic that also affects covariates, outcomes, and site trends.",
+        "design": "Same sites in six periods; four site cohorts roll out at periods 2-5. Crossover effects at periods 2-4 are compared with not-yet-deployed controls. 2 x 2 design: rollout priority random or linked to a fixed site characteristic that also affects covariates and outcomes, by common or site-specific covariate trends. Bias intervals are 95% percentile bootstraps over independent seeds.",
         "parameters": {"seeds_per_row": seeds, "sites": sites,
                        "patients_per_site_period": n_per_site_period,
                        "triage_shift_per_covariate": triage,
@@ -178,18 +209,17 @@ def run(seeds=100, sites=48, n_per_site_period=400, triage=0.25, root_seed=20260
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seeds", type=int, default=100)
+    parser.add_argument("--seeds", type=int, default=200)
     parser.add_argument("--sites", type=int, default=48)
     parser.add_argument("--n-per-site-period", type=int, default=400)
     parser.add_argument("--triage", type=float, default=0.25)
-    parser.add_argument("--root-seed", type=int, default=2026092205)
-    parser.add_argument("--output", type=Path, default=ROOT / "figures/merged_expG2.json")
+    parser.add_argument("--root-seed", type=int, default=2026092905)
+    parser.add_argument("--output", default="merged_expG2.json")
     args = parser.parse_args()
     if args.seeds < 2 or args.sites < 8 or args.sites % 4 or args.n_per_site_period < 2:
         parser.error("Need >=2 seeds, sites divisible by 4 and >=8, and >=2 patients")
     result = run(args.seeds, args.sites, args.n_per_site_period, args.triage, args.root_seed)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2) + "\n")
+    write_json(args.output, result)
     print(f"Wrote {args.output}")
 
 
