@@ -117,7 +117,12 @@ export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 
 ## Open items
 
+The handoff for the next worker, with commands, checks and acceptance
+criteria, is `docs/NEXT_STEPS.md`.
+
 - E6 numbers and Figure 7: run `docs/E6_MIMIC.md` on credentialed data.
+- Synthetic Hospital (Park, Chen, Dettmers, 2026) was assessed as a possible
+  data source and not used; see `docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md`.
 - The low-prevalence sign flip (Table `tab:prevalence`) affects the framing of
   the introduction (W1) and results (W7); it is flagged there, not rewritten.
 - Three references were added from the to-do's verified list (Liley 2021,

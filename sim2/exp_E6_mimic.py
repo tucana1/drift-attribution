@@ -340,11 +340,17 @@ def main():
     parser.add_argument("--root-seed", type=int, default=2026092906)
     parser.add_argument("--output", default=None, help="JSON path; default figures/merged_expE6.json")
     parser.add_argument("--figure", default=None, help="figure path; default figures/fig7_mimic.pdf")
+    parser.add_argument("--min-admissions", type=int, default=5000,
+                        help="smallest cohort allowed to write the default paper outputs (the open demo has about 100 patients)")
     args = parser.parse_args()
     start = time.time()
     c = Cohort(args.cohort, args.early, args.late, args.train_fraction)
-    if c.synthetic and (args.output is None or args.figure is None):
+    default_outputs = args.output is None or args.figure is None
+    if c.synthetic and default_outputs:
         parser.error("this cohort was built from the synthetic fixture; pass --output and --figure outside figures/")
+    if len(c.y) < args.min_admissions and default_outputs:
+        parser.error(f"the cohort has {len(c.y)} admissions (fewer than --min-admissions={args.min_admissions}), "
+                     "as for the MIMIC-IV demo or a test extract; pass --output and --figure outside figures/")
     f0 = fit_logistic(c.x[c.model_train], c.y[c.model_train])
     tau = float(np.quantile(f0(c.x[c.model_train]), 1 - args.alert_rate))
     held_out = c.early & ~c.model_train

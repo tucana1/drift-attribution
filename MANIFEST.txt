@@ -9,6 +9,8 @@ requirements.txt
 aaai/tables/
 docs/JOSH_E1_E7_NOTES.md
 docs/E6_MIMIC.md
+docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md
+docs/NEXT_STEPS.md
 requirements-e6.txt
 figures/adaptive_threshold_arms.csv
 figures/eps_continuum_audit.csv

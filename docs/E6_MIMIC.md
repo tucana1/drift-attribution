@@ -4,7 +4,8 @@ Task E6 in the team to-do: real covariates and outcomes for a deterioration
 task, a simulated alert policy and treatment effect on top, Experiments A and
 C repeated. The code is complete and tested on a synthetic stand-in. The
 figure and numbers for the paper have to be produced by a team member with
-credentialed MIMIC-IV access, on their own machine.
+credentialed MIMIC-IV access, on their own machine. The step-by-step handoff,
+with checks at each step and the manuscript edits, is in `docs/NEXT_STEPS.md`.
 
 ## Data use
 
@@ -14,7 +15,11 @@ extends that to sending it to hosted AI tools. Run the two scripts below
 locally, keep the cohort file in `data/` (ignored by git), and commit only the
 aggregate outputs: `figures/merged_expE6.json` and `figures/fig7_mimic.pdf`.
 These contain summary statistics over thousands of admissions and no
-patient-level rows.
+patient-level rows. An AI coding agent helping locally may run the scripts
+and read their printed summaries, but must not open `data/` or the MIMIC-IV
+files. The experiment script refuses to write paper outputs from the
+synthetic fixture or from a cohort under 5,000 admissions (such as the open
+demo).
 
 ## Run
 

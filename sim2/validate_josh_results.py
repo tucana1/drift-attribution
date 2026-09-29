@@ -161,6 +161,8 @@ def check_e6():
         return
     d = load("merged_expE6.json")
     assert d["semi_synthetic"] is True and d["synthetic_fixture"] is False, "E6 output must come from MIMIC-IV"
+    assert d["cohort"]["admissions"] >= 5000, "E6 output comes from a demo-sized cohort, not the full MIMIC-IV"
+    assert "\\todo{Numbers and Figure~\\ref{fig:mimic}" not in TEX, "F7/Appendix E6 TODO still open after the E6 run"
     same_figure("fig7_mimic.pdf")
 
 
