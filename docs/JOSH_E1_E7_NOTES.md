@@ -1,41 +1,127 @@
-# Josh's E2-E5 work
+# Josh's experiment tasks: E1 to E7
 
-## Earlier work used
+Status of the experiment tasks assigned to Josh in the September 16 team
+to-do, what each script does, what changed from the first pass on this branch,
+and what is still open. Every number in the manuscript that comes from these
+tasks is read from a JSON in `figures/` written by a script in `sim2/`; tables
+are generated into `aaai/tables/` by `sim2/make_tables.py` and
+`sim2/make_tables_e7.py`, and `sim2/validate_josh_results.py` checks the
+evidence, the mirrored copies, the generated tables and the quoted numbers.
 
-- The repository already had the calibrated simulator in `sim2/`, Experiments A-F, and the AAAI draft. Those supply the operating point, scenarios, and Brier loss target used here.
-- The September 15 `wmhs_submission_overleaf` package had a seven-rule, 100-seed, 50-round retraining study in `code/retraining_stress.py` and `evidence/retraining_stress/`. It used treatment-by-covariate interactions and an independent standard-care reference. We adapted that design for E3 with this repository's five rules, `kappa=2`, and a held alert rate. Its earlier numerical results are not used as results of the new run.
-- The prior submission also established that the policy-last decomposition has no extra interaction residual. The draft equation now states the exact three-term identity.
+## Status
 
-## New work on this branch
+| Task | Status | Evidence | Script |
+|---|---|---|---|
+| E1 decision rules | done | `merged_expE1.json`, Table `tab:decision`, Figure 4 (`fig6_decision.pdf`) | `exp_E1_decision.py`, `make_figure_E1.py` |
+| E2 information budget | done | Table `tab:information` (every estimator and update rule, oracle rows marked) | manuscript |
+| E3 conditioning correction | done, extended | `merged_expH.json`, Figure 3, Table `tab:retrain-app` | `exp_H_correction.py`, `make_figure3_E3.py` |
+| E4 robustness | done (first pass), intervals added | `merged_expAB_robustness.json`, Table `tab:robustness`, Table `tab:prevalence` | `exp_AB_robustness.py`, `exp_prevalence.py` |
+| E5 persistent-site wedge | done, estimator fixed | `merged_expG2.json`, Table `tab:sites`, Table 1 | `exp_G2_sites.py` |
+| E6 MIMIC-IV semi-synthetic | code complete; needs the credentialed run | `docs/E6_MIMIC.md` | `e6_mimic_cohort.py`, `exp_E6_mimic.py`, `e6_fixture.py` |
+| E7 intervals and harm | done | `merged_expE7.json`, Figures 1, 2, 5, 6, Tables `tab:coverage`, `tab:positivity-ci`, `tab:harm` | `exp_E7_intervals.py`, `make_figures2.py` |
 
-| Task | Change |
-|---|---|
-| E2 | Added a main-text information-budget table. Oracle mechanism weights are labeled as simulation knowledge. |
-| E3 | Added `sim2/exp_H_correction.py`, replaced `merged_expH.json`, and regenerated Figure 3 as two panels with one vertical scale and a standard-care zero. |
-| E4 | Added `sim2/exp_AB_robustness.py` and an appendix table. Experiments A and B now run at `d=10,20` with linear and nonlinear outcome truth. |
-| E5 | Added `sim2/exp_G2_sites.py` and `merged_expG2.json`. Site identities persist across six periods; rollout priority can follow site characteristics. Table 1 and the results text report the measured biases. |
+## What changed from the first pass, and why
 
-## Main results
+**E3.** The first pass compared five rules at a rate-held threshold only, and
+all corrections were correctly specified, so the "hierarchy sentence" said
+only that the interaction correction does not beat the others. The rerun
+(`exp_H_correction.py`) covers the fixed and the rate-held threshold,
+homogeneous and heterogeneous effects, and a misspecified score class, with
+seven rules. Findings: naive refitting under the fixed threshold enters the
+period-2 cycle of Liley et al. (2021, Theorem 1), with observed AUROC in
+antiphase to patient benefit; the rate-held threshold removes the loss only
+under a homogeneous effect and hides a calibration loss; conditioning on the
+action with main effects only fails under heterogeneity (the correction the
+task was about); refitting below the threshold fails under misspecification;
+unweighted refits on untreated patients drift under misspecification because
+the policy selects who stays untreated; weighting by the inverse probability
+of remaining untreated (needs alert exposure and response probabilities in
+the log) keeps the benefit in all six settings. The fixed-threshold
+oscillation and the antiphase result are back in Figure 3, as decision 5 and
+the new wording in Section 1.2 of the to-do require.
 
-- E3, `kappa=2`, round 8: the interaction correction averts **8.146 percentage points** of events versus standard care; naive refitting averts **5.531**. The untreated and unalerted corrections avert **8.152** and **8.135**. The interaction correction does not rank above them in this run.
-- E4: the no-action game still assigns nearly all of the S3 Brier change to the marginal outcome mechanism. At `eps=0`, union-graph policy-share bias remains about **-0.036 to -0.040** Brier units when sample size reaches 96,000.
-- E5: with random rollout order, retrospective-term bias is **-0.00075** Brier units. With rollout linked to site characteristics and site-specific trends, it is **-0.00267**. The estimated deployment-caused covariate mean shift is **0.293** versus its true **0.250**; the estimated exogenous increment is **0.072** versus **0.114**. A separate location-shift reweighting of observed pre-rollout losses measures the Brier-scale X split; its biases are reported in the appendix and saved JSON.
+**E5.** The first pass explained the bias of the Brier-scale X split under
+random rollout as "finite-sample and location-model error". That was wrong:
+the reweighting step is unbiased for a single site even at 400 patients. The
+bias comes from imputing the controls' average covariate trend into each
+site's loss curve when trends are site specific. The script now also reports
+a DiD-anchored split (exogenous part from the not-yet-deployed sites' loss
+change), which is unbiased under random order even with site-specific trends,
+and the design is a full 2 x 2 (random or characteristic-linked order, common
+or site-specific trends; 200 seeds per cell). New result: characteristic-linked
+rollout biases the retrospective term by about -10% even with common covariate
+trends, because parallel covariate trends do not give parallel Brier trends.
+
+**E4.** Unchanged design; the appendix table is now generated with 95%
+bootstrap intervals. Added `exp_prevalence.py`: at the calibrated operating
+point the untreated event rate is about 40%; with the alert rate held at 20%
+and the event rate lowered to 14% or 7%, the same deployment lowers the Brier
+score. The monitor still books all of it to P(Y|X), so F1 survives, but the
+paper's "performance drops" framing holds only at high prevalence.
+
+**E2.** The table now lists every estimator and update rule reported
+(attribution estimators, the E3 update rules, the E1 decision rules), with the
+oracle column marking simulation-only rows.
+
+**E1 (new).** Keep-or-refit decision after the monitoring window of S1-S4,
+outcome = expected events in the next window with alerts acted upon, 200
+replicates per scenario in independent seed blocks. The task's rule (refit
+when the proposed decomposition assigns more than half of the change to
+exogenous mechanisms) avoids the 11.5-point losses of always refitting in S3
+and S4 but refits in S1, where naive refitting on standard-care data costs 4.6
+points; refitting only when the outcome-mechanism term dominates has zero
+regret in S1-S4. The monitor-driven rule refits in S3 and loses everything.
+With a rate-held threshold the decision matters little (under 1.3 points).
+Refitting on untreated patients dominates every keep-or-naive-refit rule.
+
+**E7 (new).** `exp_E7_intervals.py` reruns Experiments A, B, D, E and F with an
+independent seed block per row (decision 3) and stores every replicate, so all
+main-text numbers carry 95% bootstrap intervals over replicates; it adds a
+patient-level bootstrap for the attribution estimators and reports coverage
+of each estimator's own estimand, and a harm term for unnecessary treatment.
+Figures 1, 2, 5 and 6 now read this file. Results: the proposed estimator's
+analyst intervals cover its estimand close to the nominal 95% (90% to 99%
+across terms and scenarios); the monitor's intervals cover the marginal game
+it estimates but never the policy-contrast outcome term in S3 or S4; at
+eps = 0 the union-graph interval excludes its target at every n up to
+400,000 while narrowing. A harm of 0.2 events per unnecessary treatment
+removes about a sixth of the deployment benefit and changes no ranking.
+
+**E6 (new).** Pipeline complete and tested end to end on a synthetic stand-in
+with the MIMIC-IV table layout. The results need a local run on credentialed
+data; see `docs/E6_MIMIC.md`. The manuscript has the section, the simulated
+components list, the figure slot and a TODO for the numbers.
+
+## Seed blocks
+
+Every E-series script draws from `np.random.SeedSequence([root, experiment,
+row, replicate, ...])` (`sim2/common.py`): E1 root 2026092901, E3 2026092903,
+E5 2026092905, E6 2026092906, E7 2026092907, prevalence 2026092908. Rows of a
+sweep never share draws; rules or estimators compared within a row do.
 
 ## Reproduce
 
-Run from the repository root with Python 3.10 or later:
-
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python sim2/exp_H_correction.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python sim2/exp_AB_robustness.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python sim2/exp_G2_sites.py
-.venv/bin/python sim2/make_figure3_E3.py
-cp figures/merged_expH.json figures/merged_expAB_robustness.json figures/merged_expG2.json aaai/figures/
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+.venv/bin/python sim2/exp_H_correction.py      # E3, about 3 min
+.venv/bin/python sim2/exp_E1_decision.py       # E1, about 2 min
+.venv/bin/python sim2/exp_G2_sites.py          # E5, under 1 min
+.venv/bin/python sim2/exp_AB_robustness.py     # E4
+.venv/bin/python sim2/exp_prevalence.py        # prevalence check
+.venv/bin/python sim2/exp_E7_intervals.py      # E7, about 20 min on 4 cores
+.venv/bin/python sim2/make_figures2.py         # all figures
+.venv/bin/python sim2/make_tables.py           # all generated tables
 .venv/bin/python sim2/validate_josh_results.py
 ```
 
-The root and `aaai/figures/` JSON copies are identical. Figure 3 is generated in both directories. Each E4 and E5 row uses an independent seed block; methods within a row share patients where pairing is intended. `sim2/validate_josh_results.py` checks the saved rows and their reported summaries.
+## Open items
 
-These are synthetic results. The E3 action-based corrections assume recorded treatment and sufficient measured covariates. The E5 site comparison requires a credible comparison trend; the characteristic-linked scenarios show its bias when that condition fails. The Brier-scale X reweighting also assumes a Gaussian location shift and has finite-sample bias even with random rollout. The draft still has unrelated writing and proof TODOs outside E2-E5.
+- E6 numbers and Figure 7: run `docs/E6_MIMIC.md` on credentialed data.
+- The low-prevalence sign flip (Table `tab:prevalence`) affects the framing of
+  the introduction (W1) and results (W7); it is flagged there, not rewritten.
+- Three references were added from the to-do's verified list (Liley 2021,
+  Haidar-Wehbe 2025, Johnson 2023); their titles should be checked against
+  the DOI pages (L2/L3), because this environment could not reach them.
+- The Section 5 S2 description said "change in w_y"; the code shifts the
+  outcome intercept, and the text now says so.
