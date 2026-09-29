@@ -48,11 +48,28 @@ HORIZON_HOURS = 12
 LOOKBACK_HOURS = 24
 
 
+# Types of the columns this script uses (present in MIMIC-IV v2.2 and v3.x); other columns are sniffed.
+TYPES = {
+    "patients": {"subject_id": "BIGINT", "gender": "VARCHAR", "anchor_age": "INTEGER", "anchor_year": "INTEGER",
+                 "anchor_year_group": "VARCHAR"},
+    "admissions": {"subject_id": "BIGINT", "hadm_id": "BIGINT", "admittime": "TIMESTAMP", "dischtime": "TIMESTAMP",
+                   "deathtime": "TIMESTAMP", "admission_type": "VARCHAR"},
+    "transfers": {"subject_id": "BIGINT", "hadm_id": "BIGINT", "eventtype": "VARCHAR", "careunit": "VARCHAR",
+                  "intime": "TIMESTAMP", "outtime": "TIMESTAMP"},
+    "labevents": {"subject_id": "BIGINT", "hadm_id": "BIGINT", "itemid": "BIGINT", "charttime": "TIMESTAMP",
+                  "valuenum": "DOUBLE", "value": "VARCHAR", "comments": "VARCHAR"},
+    "d_labitems": {"itemid": "BIGINT", "label": "VARCHAR", "fluid": "VARCHAR", "category": "VARCHAR"},
+    "icustays": {"subject_id": "BIGINT", "hadm_id": "BIGINT", "stay_id": "BIGINT", "first_careunit": "VARCHAR",
+                 "last_careunit": "VARCHAR", "intime": "TIMESTAMP", "outtime": "TIMESTAMP"},
+}
+
+
 def table(root, module, name):
     for ext in (".csv.gz", ".csv"):
         path = Path(root) / module / f"{name}{ext}"
         if path.exists():
-            return f"read_csv_auto('{path.as_posix()}', header=true, sample_size=-1)"
+            types = ", ".join(f"'{k}': '{v}'" for k, v in TYPES[name].items())
+            return f"read_csv('{path.as_posix()}', header=true, auto_detect=true, types={{{types}}})"
     raise FileNotFoundError(f"{module}/{name}.csv(.gz) not found under {root}")
 
 
