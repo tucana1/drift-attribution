@@ -23,7 +23,7 @@ def make_cfg(**kw):
 
 # ------------------------------------------------------------------ sampler with potential outcomes
 def sample_po(cfg, mechs, n, rng, control_frac=0.0):
-    mu = mu_of(cfg, None, mechs); x = rng.normal(size=(n, 2)) + mu
+    mu = mu_of(cfg, None, mechs); x = rng.normal(size=(n, cfg.d)) + mu
     shifted = "Y" in mechs; deployed = ("pi" in mechs) and cfg.deploy
     q0 = p_y1(cfg, x, np.zeros(n), shifted); q1 = p_y1(cfg, x, np.ones(n), shifted)
     u = rng.random(n); y0 = (u < q0).astype(float); y1 = (u < q1).astype(float)      # monotone coupling

@@ -54,15 +54,24 @@ class Config:
         triage=0.0,        # endogenous P(X) shift caused by deployment
         deploy=True,       # does e1 actually differ from e0 in the policy?
         seed=0,
+        d=2,               # extra coordinates are available for robustness runs
+        nonlinear_outcome=0.0,  # truth-only interaction; deployed score stays logistic-linear
     ):
         self.deploy = deploy
         self.eps, self.theta, self.delta, self.dy = eps, theta, delta, dy
         self.phi, self.tau_s, self.tau_r = phi, tau_s, tau_r
         self.q_hi, self.p_alert, self.b0 = q_hi, p_alert, b0
         self.triage, self.seed = triage, seed
+        if d < 2:
+            raise ValueError("d must be at least 2")
+        self.d, self.nonlinear_outcome = d, nonlinear_outcome
         # model direction (well specified w.r.t. the outcome), clinician direction
-        self.w_r = np.array([1.0, 1.0]) / SQ2
-        self.w_s = np.array([np.cos(phi), np.sin(phi)])
+        self.w_r = np.zeros(d)
+        self.w_r[:2] = 1.0 / SQ2
+        if d > 2:
+            self.w_r[2:] = 0.30 / np.sqrt(d - 2)
+        self.w_s = np.zeros(d)
+        self.w_s[:2] = [np.cos(phi), np.sin(phi)]
         self.w_y = self.w_r.copy()
 
 
@@ -73,17 +82,17 @@ def sigmoid(z):
 # ------------------------------------------------------- mechanism pieces
 def mu_of(cfg, env, mechs):
     """Mean of P(X) in the coalition environment."""
-    m = np.zeros(2)
+    m = np.zeros(cfg.d)
     if "X" in mechs:
-        m = m + cfg.delta                      # exogenous shift
+        m[:2] += cfg.delta                     # same shift magnitude across dimensions
     if "pi" in mechs:
-        m = m + cfg.triage                     # deployment-induced triage shift
+        m[:2] += cfg.triage                    # deployment-induced triage shift
     return m
 
 
 def logpdf_x(cfg, x, mu):
     d = x - mu
-    return -0.5 * (d ** 2).sum(1) - np.log(2 * np.pi)
+    return -0.5 * (d ** 2).sum(1) - 0.5 * x.shape[1] * np.log(2 * np.pi)
 
 
 def r_hat(cfg, x):
@@ -108,6 +117,9 @@ def p_treat(cfg, x, deployed):
 def p_y1(cfg, x, a, shifted):
     """P(Y=1 | X, A)."""
     lin = x @ cfg.w_y + cfg.b0 - cfg.theta * a
+    if cfg.nonlinear_outcome:
+        third = x[:, 2] if cfg.d > 2 else x[:, 1]
+        lin = lin + cfg.nonlinear_outcome * (x[:, 0] * third + 0.3 * (third ** 2 - 1))
     if shifted:
         lin = lin + cfg.dy
     return sigmoid(lin)
@@ -118,7 +130,7 @@ def sample_env(cfg, mechs, n, rng):
     """Forward-sample the coalition environment where mechanisms in
     `mechs` take their e1 form and the rest their e0 form."""
     mu = mu_of(cfg, None, mechs)
-    x = rng.normal(size=(n, 2)) + mu
+    x = rng.normal(size=(n, cfg.d)) + mu
     a = (rng.random(n) < p_treat(cfg, x, deployed=("pi" in mechs and cfg.deploy))).astype(float)
     y = (rng.random(n) < p_y1(cfg, x, a, shifted=("Y" in mechs))).astype(float)
     return x, a, y
@@ -184,7 +196,7 @@ def _weights_union3(cfg, x, a, y, S, clip=None):
     diag = {}
     if "X" in S or "pi" in S:
         mu1 = mu_of(cfg, None, S & {"X", "pi"})
-        wx = np.exp(logpdf_x(cfg, x, mu1) - logpdf_x(cfg, x, np.zeros(2)))
+        wx = np.exp(logpdf_x(cfg, x, mu1) - logpdf_x(cfg, x, np.zeros(cfg.d)))
         w = w * wx
     if "pi" in S:
         p1 = p_treat(cfg, x, deployed=cfg.deploy)
@@ -235,8 +247,8 @@ def naive2_values(cfg, n=20_000, metric="brier", seed=1):
     for S in [(), ("X",), ("Ygx",), ("X", "Ygx")]:
         w = np.ones(len(x))
         if "X" in S:
-            w = w * np.exp(logpdf_x(cfg, x, np.full(2, cfg.delta))
-                           - logpdf_x(cfg, x, np.zeros(2)))
+            w = w * np.exp(logpdf_x(cfg, x, mu_of(cfg, None, {"X"}))
+                           - logpdf_x(cfg, x, np.zeros(cfg.d)))
         if "Ygx" in S:
             # e1 marginal: deployment on (pi1) and any exogenous outcome shift
             q1 = _p_y1_marg(cfg, x, deployed=cfg.deploy, shifted=True)

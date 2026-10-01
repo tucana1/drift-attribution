@@ -37,7 +37,6 @@
 
 \begin{document}
 
-
 \maketitle
 
 \begin{abstract}
@@ -208,19 +207,18 @@ discrimination while improving outcomes; that is the premise.
 
 \paragraph{Decomposition.} Write the observed change as
 \begin{equation}
-\Delta R = \underbrace{\Delta_X}_{\text{covariate}} +
-\underbrace{\Delta_{Y|X,A}}_{\text{outcome mechanism, policy held at } \pi_0} +
-\underbrace{\Delta_{\pi}}_{\text{model-mediated policy, } \pi_0 \to \pi_1 \text{ in } e_1}
-\;(+ \text{interaction}),
+\Delta R = \Delta_X^{\pi_0} + \Delta_{Y|X,A}^{\pi_0}
+          + \Delta_{\pi}^{e_1},
 \label{eq:decomp}
 \end{equation}
 where $\Delta_\pi = R_{e_1}(f; \pi_1) - R_{e_1}(f; \pi_0)$ is a policy contrast
 evaluated entirely within the post-deployment environment, so it never requires
 $e_0$ outcomes under $e_1$ actions. The first two terms are exogenous and
 remain a Shapley game over $\{P(X), P(Y \mid X, A)\}$ with the policy fixed at
-$\pi_0$, which is well defined because $\pi_0$ has support in both
-environments. \todo{State the order-dependence of the split and why the policy
-term is placed last (it is the only term that is a causal descendant of $f$).}
+$\pi_0$, which is well defined when the needed standard-care responses have
+support in both environments. The exact identity assigns interactions by a
+policy-last ordering; no residual is omitted. The policy is last because its
+post-deployment value is the decision contrast in the current patient mix.
 
 \paragraph{Output.} A three-term decomposition with uncertainty intervals and a
 sensitivity analysis, not a categorical label.
@@ -248,6 +246,31 @@ action, timing, outcome.
 $\rhat = \tau$.
 (4) Site or physician practice variation: identified under an instrument-type
 assumption.
+
+\begin{table*}[t]
+\centering\small
+\caption{Identification by design, checked against Experiments F and E5
+(Table~\ref{tab:sites}). ``$X$ split'' separates the deployment-caused from the
+exogenous covariate shift. Site designs need site identities and rollout dates
+and cover the crossover cohorts that have a not-yet-deployed comparison. Under
+random rollout order the retrospective bias is $-0.2\%$ and $-0.7\%$ and the
+Brier-scale split taken from the not-yet-deployed sites' loss change is within
+$2.1\%$. Parallel trends must hold for the loss, not only for the covariates:
+with rollout linked to a site characteristic that also sets case mix and
+baseline risk, the retrospective term is biased by $-10.5\%$ under common
+covariate trends and $-5.6\%$ under site-specific ones.}
+\label{tab:identification}
+\begin{tabular}{llll}
+\toprule
+Design & $X$ split & Prospective alert contrast & Retrospective contrast\\
+\midrule
+Observational pre/post only & No & No & No\\
+Patient-level randomised alert arm & No & Yes & No\\
+Site stepped wedge, random order & Yes & No & Yes\\
+Staggered non-random rollout & If loss trends are parallel & No & If loss trends are parallel\\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \begin{proposition}[Local-to-global gap under threshold discontinuity]
 \label{prop:rd}
@@ -277,12 +300,16 @@ others with probability $\varepsilon$; the alert policy $\pi_1$ treats
 $\rhat > \tau_r$ with probability $0.85$. The \emph{alert-only region}
 ($\rhat > \tau_r$, $s \le \tau_s$) holds $28\%$ of patients: it is where the
 model has clinical value and where $\pi_1 / \pi_0 = 0.85 / \varepsilon$. Outcomes
-are Bernoulli with logit $w_y^\top x + b_0 - \theta A$, $\theta = 2.5$. Exogenous
-shifts (S1: mean shift in $X$; S2: change in $w_y$) are calibrated so that each
-degrades the Brier score by an amount comparable to deployment alone (S3);
-S4 combines all three. Every estimator is evaluated against coalition values
-obtained by forward-simulating each hybrid environment ($n = 4 \times 10^5$),
-which an analyst cannot do. Operating point, seeds and code are released.
+are Bernoulli with logit $w_y^\top x + b_0 - \theta A$, $\theta = 2.5$; the
+untreated event rate is about $40\%$. Exogenous shifts are a mean shift of $0.5$
+in each coordinate of $X$ (S1) and a shift of $+0.6$ in the outcome logit
+intercept (S2); they raise the Brier score by $0.051$ and $0.014$, against
+$0.027$ for deployment alone (S3); S4 combines all three. Every estimator is
+evaluated against coalition values computed from the known mechanisms as
+expected Brier scores over $4 \times 10^6$ covariate draws per hybrid
+environment (four independent blocks, whose spread gives the Monte Carlo
+error), which an analyst cannot do. Operating point, seeds and code are
+released.
 
 \paragraph{Estimators.} (i) The union-graph importance-sampling estimator of
 Zhang et al.\ with players $\{P(X), \pi, P(Y \mid X, A)\}$, unclipped and with
@@ -290,74 +317,179 @@ weights clipped at $100$; (ii) the two-player game $\{P(X), P(Y \mid X)\}$ that 
 monitoring pipeline without action logs computes, with the covariate density
 ratio estimated by a classifier; (iii) the proposed decomposition
 (Section~\ref{sec:estimand}) with the policy term identified from a randomised
-unalerted arm ($30\%$ of post-deployment patients). All results use 20 to 30
-seeds and $n = 20{,}000$ per environment.
+unalerted arm ($30\%$ of post-deployment patients). Each environment has
+$n = 20{,}000$ patients. Every row of every sweep has its own seed block
+(E7), so no bias claim across rows reuses patients. Numbers are means over
+independent replicates (100 per scenario for attribution, 30 per positivity
+level, 20 per utility cell, 30 per triage level) with 95\% percentile bootstrap
+intervals over replicates in brackets; these measure the Monte Carlo error of
+the mean. What an analyst would report from one dataset is wider: each
+replicate also gets a patient-level bootstrap, whose coverage of each
+estimator's own estimand is in Appendix~\ref{app:intervals}.
+
+\begin{table*}[t]
+\centering\small
+\caption{Information budget for every estimator and update rule reported.
+``Pre'' and ``post'' mean observed samples; $A$ is the recorded action.
+Oracle rows (last column ``Yes'') use true simulator mechanism probabilities
+and serve only to validate targets. The original deployed score is available
+to every method. Site designs also need site identities and rollout dates;
+the plug-in Brier-scale $X$ split of E5 additionally assumes a Gaussian
+location shift. The weighted refit needs the alert exposure and the
+clinician-response probabilities, logged or estimated.}
+\label{tab:information}
+\begin{tabular}{llllll}
+\toprule
+Estimator or rule & Pre sample & Post sample & Action log & Randomised arm & Oracle\\
+\midrule
+\multicolumn{6}{l}{\emph{Attribution (Experiments A, B, F, E5, E6)}}\\
+Monitor, two-player, estimated ratio & $(X,Y)$ & $(X,Y)$ & No & No & No\\
+Monitor, two-player, oracle ratios & $(X,Y)$ & None & No & No & Yes\\
+Union graph IS, raw or clipped & $(X,A,Y)$ & None & Yes & No & Yes\\
+Proposed, randomised arm & $(X,Y)$ & $(X,Y)$ & No & Yes & No\\
+Proposed, oracle policy weights & $(X,Y)$ & $(X,A,Y)$ & Yes & No & Yes\\
+Site crossover difference in differences & $(X,Y)$ & $(X,Y)$ & No & No & No\\
+Threshold discontinuity, local ITT & None & $(\rhat,Y)$ & No & No & No\\
+\multicolumn{6}{l}{\emph{Update rules (E3) and refit decisions (E1)}}\\
+Naive refit & Score only & $(X,Y)$ & No & No & No\\
+Refit below the alert threshold & Score only & $(X,Y)$, alert & No & No & No\\
+Refit on $A=0$; condition on $A$ & Score only & $(X,A,Y)$ & Yes & No & No\\
+Refit on $A=0$, weighted & Score only & $(X,A,Y)$, alert & Yes & No & No\\
+Attribution-guided refit & \multicolumn{5}{l}{that of the attribution driving it}\\
+\bottomrule
+\end{tabular}
+\end{table*}
+The oracle rows validate targets in simulation. They are not deployable
+estimators. The randomised-arm row uses assignment and outcome, while the site
+row needs a credible site-level comparison; neither observes counterfactual
+outcomes directly.
 
 \paragraph{Two references, not one (Figure~\ref{fig:attr}).} With oracle
 coalition values, the symmetric Shapley share of the policy player and the
-policy-contrast estimand coincide under S3 ($+0.0267$ vs.\ $+0.0267$) and
-differ under S4 ($+0.0349$ vs.\ $+0.0425$). The difference is entirely the
-interaction $I(X, \pi) = +0.0158$ between covariate shift and policy, which
-Shapley symmetry halves; $I(\pi, Y) \approx 0$. The interaction has a clinical
-reading: the exogenous mix shift pushes more patients above the alert
-threshold, so the policy does more work in the shifted population, which is
-the population in which the keep-or-retrain decision is taken. The
-policy-contrast estimand conditions on it; the symmetric share does not. The
-marginal contributions of the policy player to $\emptyset$, $\{X\}$, $\{Y\}$ and
-$\{X, Y\}$ are $+0.0270$, $+0.0428$, $+0.0268$, $+0.0431$; we report all four
-rather than choose one, and the interaction grows with the size of the
-exogenous covariate shift.
+policy-contrast estimand coincide under S3 ($+0.0269$ vs.\ $+0.0269$) and
+differ under S4 ($+0.0351$ vs.\ $+0.0431$; Monte Carlo SEs below $10^{-4}$). The
+difference is entirely the interaction $I(X, \pi) = +0.0162$ between covariate
+shift and policy, which Shapley symmetry halves; $I(\pi, Y) = +0.0004$. The
+interaction has a clinical reading: the exogenous mix shift pushes more
+patients above the alert threshold, so the policy does more work in the
+shifted population, which is the population in which the keep-or-retrain
+decision is taken. The policy-contrast estimand conditions on it; the
+symmetric share does not. The marginal contributions of the policy player to
+$\emptyset$, $\{X\}$, $\{Y\}$ and $\{X, Y\}$ are $+0.0269$, $+0.0431$, $+0.0273$ and
+$+0.0431$; we report all four rather than choose one, and the interaction
+grows with the size of the exogenous covariate shift.
 
 \paragraph{F1: misattribution is silent (Figure~\ref{fig:attr}).} Under S3 the
-observed Brier score rises by $+0.0268$. Without action logs the two-player game
-assigns $+0.0268 \pm 0.0022$ to $P(Y \mid X)$ and $0$ to $P(X)$, with estimated
-density ratios: $98\%$ of the policy's contribution is booked to the outcome
-mechanism, precisely, and no diagnostic fires. The union-graph estimator is
-right on average but unusable in any single run ($+0.027 \pm 0.018$, effective
-sample size $113$ of $20{,}000$); clipping restores the variance and reverses
-the sign ($-0.003 \pm 0.003$). The proposed decomposition recovers its estimand
-($+0.025 \pm 0.003$ from the randomised arm; $+0.027 \pm 0.001$ with oracle
-policy weights). Under S1 and S2 all estimators agree with the truth, so the
-pathology is specific to deployment. Under S4 the randomised-arm estimate
-($+0.035 / -0.002 / +0.043$ for $X / Y / \pi$) matches the target
-($+0.034 / -0.002 / +0.043$).
+observed Brier score rises by $+0.0268$ [$+0.0264$, $+0.0273$]. Without action logs the
+two-player game assigns $+0.0271$ [$+0.0266$, $+0.0275$] to $P(Y \mid X)$ and
+$-0.0002$ [$-0.0004$, $+0.0000$] to $P(X)$, with estimated density ratios: all of the
+policy's contribution ($+0.0269$) is booked to the outcome mechanism, precisely
+(single-run SD $0.0023$), and no diagnostic fires. The monitor's own bootstrap
+interval covers the marginal game it estimates in $93\%$ of replicates and
+the policy-contrast outcome term in $0\%$. The union-graph estimator is right on
+average ($+0.0270$ [$+0.0237$, $+0.0305$]) but unusable in any single run (SD $0.017$,
+effective sample size $107$ of $20{,}000$); clipping restores the variance and
+reverses the sign ($-0.0033$ [$-0.0040$, $-0.0027$]). The proposed decomposition
+recovers its estimand: $+0.0269$ [$+0.0263$, $+0.0276$] from the randomised arm and
+$+0.0268$ [$+0.0265$, $+0.0270$] with oracle policy weights, and its analyst interval covers
+the estimand in $95\%$ of replicates. Under S1 and S2 all estimators agree with
+their targets, so the pathology is specific to deployment. Under S4 the
+randomised-arm estimate ($+0.0343 / -0.0025 / +0.0433$ for $X / Y / \pi$)
+matches the target ($+0.0345 / -0.0024 / +0.0431$).
 
 \paragraph{F2: more data makes the wrong answer more confident
 (Figure~\ref{fig:positivity}).} At $\varepsilon = 0$ the union-graph estimator
-returns $-0.0090 \pm 0.0004$ against a truth of $+0.0273$, with an effective
-sample size of $16{,}000$ of $20{,}000$ and no extreme weight: the
+returns $-0.0088$ [$-0.0090$, $-0.0086$] against a target of $+0.0269$, with an
+effective sample size of $15{,}993$ of $20{,}000$ and no extreme weight: the
 pre-deployment sample contains no treated patient in the alert-only region, so
 the estimator silently omits the cell. Scaling $n$ from $2 \times 10^4$ to
-$4 \times 10^5$ leaves the bias at $-133\%$ of the truth while the standard
-error shrinks tenfold; at $n = 4 \times 10^5$ the alert-only cell holds
-$112{,}064$ patients, none treated. Effective sample size is not monotone in
-$\varepsilon$ and is highest where the estimate is wrong: it measures the
+$4 \times 10^5$ leaves the bias at $-133\%$ of the target while an analyst's 95\%
+bootstrap interval narrows from [$-0.0102$, $-0.0077$] to
+[$-0.0091$, $-0.0085$] (medians over replicates) and excludes the target in
+every replicate; at $n = 4 \times 10^5$ the alert-only cell holds about
+$112{,}076$ patients, none treated. Effective sample size is not monotone
+in $\varepsilon$ and is highest where the estimate is wrong: it measures the
 variance regime, not identifiability. Clipping bias is confined to the
 intermediate regime $\varepsilon \in [10^{-4}, 10^{-3}]$, where weights are large
 enough to matter and small enough to be sampled; at $\varepsilon = 0$ and
-$\varepsilon \ge 10^{-2}$ clipping is a no-op. The proposed decomposition is
-$+0.028 \pm 0.003$ at every $\varepsilon$.
+$\varepsilon \ge 10^{-2}$ clipping is a no-op. The proposed decomposition
+recovers its estimand at every $\varepsilon$, with analyst-interval coverage
+between $93\%$ and $100\%$.
 
 \paragraph{F3: acting on the misattribution (Figure~\ref{fig:retrain}).}
-Retraining $f$ on post-deployment $(X, Y)$ and redeploying at the same
-threshold converges to a period-2 limit cycle in $20$ of $20$ seeds: the alert
-rate alternates between $29\%$ and $9\%$ (from $39.5\%$), events averted
-relative to standard care alternate between $7.6$ and $0.1$ percentage points
-(from $11.5$), and the observed AUROC alternates between $0.66$ and $0.74$
-(from $0.64$). Events averted and observed AUROC oscillate in antiphase: the
-round in which the dashboard reports its best discrimination is the round in
-which the model averts nothing. This is an instance of the failure mode \citet{kabra2024limitations} show to be unavoidable for naive
-retraining under performativity, produced here by a specific misattribution.
-Three corrections preserve the $11.5$ points. Retraining on the unalerted
-subpopulation ($\rhat \le \tau_r$) needs no action log, but extrapolates across
-the threshold: it works because the model class is well specified and alerts
-do not change treatment below the threshold, and neither assumption is
-testable from deployed data. Retraining on untreated patients, or conditioning
-on $A$ and predicting at $A = 0$, requires action logs and needs neither
-assumption. Logging is therefore not the only correction; it is the one that
-does not rest on an untestable assumption.
+A team that reads the monitor's attribution as outcome-mechanism drift refits
+$f$ on post-deployment $(X, Y)$ and redeploys it. We compare seven update
+rules over eight rounds against one standard-care reference, under the
+deployed fixed threshold and with the original alert rate held, for a
+homogeneous effect, a heterogeneous effect ($\kappa = 2$: the logit effect
+varies along the covariate direction the score ignores) and a score class that
+cannot represent the untreated risk (Appendix~\ref{app:retrain}). Under the
+fixed threshold naive refitting fails in every setting. With a homogeneous
+effect it enters the period-2 cycle predicted by Theorem~1 of
+\citet{liley2021model}: events averted fall from $11.46$ [$11.43$, $11.49$]
+percentage points to $0.01$ in round two and then alternate between about
+$7.5$ and $0.1$, as the alert rate alternates between about $29\%$ and $9\%$.
+The dashboard moves in antiphase with the benefit: observed AUROC in the
+deployed population is $0.737$ to $0.744$ in the rounds in which the alert
+averts almost nothing and $0.658$ to $0.660$ in the rounds in which it works,
+against $0.644$ for the original score. Holding the alert rate
+fixed removes the loss under a homogeneous effect ($11.33$ [$11.27$, $11.39$]
+at round eight) but hides a calibration loss: the refitted score is on average
+$0.159$ below the untreated risk. Under a heterogeneous effect the rate-held
+naive refit keeps $5.42$ [$5.36$, $5.48$] of $8.07$ points, so holding the rate
+is a governance lever, not a fix. The corrections form a hierarchy. Conditioning
+on the action with main effects only fails under heterogeneity almost as badly
+as naive refitting ($5.72$ fixed, $5.47$ rate-held), because one treatment
+coefficient averages the effect over the deployed population; adding
+treatment-by-covariate interactions restores $8.08$. Refitting below the alert
+threshold needs no action log and holds while the score class is well
+specified; with a misspecified untreated risk and the fixed threshold it keeps
+$5.77$ [$5.50$, $6.04$] of $9.44$ points. Refitting on untreated patients and
+conditioning with interactions lose $1.71$ [$1.60$, $1.83$] points in that
+setting: when the score class cannot represent the untreated risk, the fit
+depends on which patients the current policy leaves untreated. Weighting the
+untreated patients by the inverse of their logged probability of remaining
+untreated removes that dependence and keeps the benefit in all six settings
+($9.50$ [$9.40$, $9.59$] misspecified, fixed threshold). Refitting on
+untreated or unalerted patients is the holdout update of
+\citet{liley2021model} and \citet{haidarwehbe2025optimal}; our additions are the
+comparison under heterogeneous effects and misspecification and the weighted
+form, which needs the alert exposure and response probabilities in the log.
+Every action-log correction assumes the logged covariates capture the
+clinician's treatment decision.
 
-\paragraph{F4: deployment also moves the patient mix
+\input{tables/e1_decision}
+
+\paragraph{F4: attribution-guided refitting (Table~\ref{tab:decision},
+Figure~\ref{fig:decision}).} Does the attribution improve the refit decision?
+After the monitoring window of each scenario a rule keeps or naively refits
+the score, and we count events in the next window, in which alerts are acted
+upon and the exogenous state of the monitoring window persists; in S1 and S2
+the score ran silently during monitoring. Each scenario has its own seed block
+of 200 replicates, and the rules share draws within a replicate. Always
+refitting loses $11.5$ points in S3 and in S4. The task rule, refit when the
+proposed decomposition assigns more than half of the change to exogenous
+mechanisms, never refits in S3, keeps the gain of refitting in S2 ($16.8$
+against $12.6$ points for keeping) and refits in $8\%$ of S4 replicates. It
+also refits in S1, where the original score is still the untreated risk:
+naive refitting on standard-care data then imports standard care's treatment
+of suspicious patients into the score, lowers the alert rate from $67\%$ to
+$54\%$ and costs $4.6$ points. Mapping components to actions removes this
+loss: refitting only when the outcome-mechanism term carries more than half of
+the change has zero regret in all four scenarios. Driven by the monitor
+without action logs, the same rule refits in S3 and loses the whole benefit,
+because the monitor books the policy term to the outcome mechanism. Two
+qualifications. With the alert rate held, no two rules differ by more than
+$1.3$ points in S1 to S4, whose shifts leave the ranking of patients unchanged
+(Appendix~\ref{app:decision}). And keeping or refitting naively are not the
+only options: refitting on untreated patients, which needs the action log
+rather than the randomised arm, matches the better of the two in S1 and S3 and
+beats both in S2 ($+1.7$ points) and S4 ($+4.9$), because it recalibrates to
+the outcome shift without absorbing any treatment. Harm-weighted versions
+leave the ranking unchanged for harms up to $0.2$ events per unnecessary
+treatment (Appendix~\ref{app:decision}).
+
+\paragraph{F5: deployment also moves the patient mix
 (Figure~\ref{fig:triage}).} Adding a triage effect, a covariate shift caused by
 deployment itself, violates the independent-shift clause of Zhang et al.'s
 assumptions: one event moves both $\pi$ and $P(X)$. The monitor books the whole
@@ -369,51 +501,139 @@ retrospective contrast (undo deployment, including its triage effect) grows
 from $+0.027$ to $+0.094$ as triage rises to $0.5$, while the prospective
 contrast (switch the alert off in the current mix), which the keep-or-retrain
 decision needs, grows only to $+0.043$; the randomised arm recovers the
-prospective one at every triage level. Patient-level randomisation cannot
+prospective one at every triage level (largest gap $0.0009$, every 95\% interval of the gap includes zero). Patient-level randomisation cannot
 separate exogenous from deployment-caused mix shift, because both arms draw
-from the post-deployment referral stream; a site-level stepped-wedge rollout
-can, because undeployed sites retain the old mix
-(Section~\ref{sec:ident}). We state this as a limitation of the decomposition.
+from the post-deployment referral stream. A site rollout supplies undeployed
+comparisons if site identities and rollout dates are recorded. In a stepped
+wedge with persistent sites (E5: 48 sites, six periods, 200 independent
+seeds per setting; Table~\ref{tab:sites}), a crossover difference in
+differences recovers the retrospective term when rollout order is random (bias
+$-0.2\%$ [$-1.3$, $0.9$] with common covariate trends, $-0.7\%$ [$-1.7$, $0.4$]
+with site-specific trends). Its Brier-scale split into a deployment-caused and
+an exogenous covariate part is also unbiased under random order (within
+$2.1\%$) if the exogenous part is taken from the not-yet-deployed sites' loss
+change; imputing their average covariate shift into each site's loss instead
+is biased by $+47\%$ once trends are site specific. When early rollout goes to
+sites whose characteristic also sets case mix and baseline risk, the
+retrospective term is biased by $-10.5\%$ [$-11.5$, $-9.5$] even with common
+covariate trends, because the same covariate trend moves the Brier score by
+different amounts at sites with different risk: parallel covariate trends do
+not give parallel loss trends. With site-specific trends the covariate-mean
+split is biased as well ($+16.5\%$ induced, $-36.5\%$ exogenous). Random
+rollout order, not site-level rollout as such, identifies the split
+(Section~\ref{sec:ident}; Appendix~\ref{app:sites}).
 
-\paragraph{F5: discrimination and utility move in opposite directions
+\paragraph{F6: discrimination and utility move in opposite directions
 (Figure~\ref{fig:utility}).} Across treatment effect and adherence, observed
-post-deployment AUROC falls monotonically (to $0.637$ at $\theta = 2.5$,
-adherence $0.9$) while events averted rise to $12.2$ points. Standard
-decision-curve net benefit computed on observed outcomes falls from $+0.056$
-to $-0.143$, crossing zero between adherence $0.3$ and $0.5$; the
-counterfactual net benefit, computed against the untreated potential outcome
-that the alert is meant to catch, is $+0.161$ throughout. In practice the
-counterfactual quantity is identified by the same randomised arm that
-identifies the policy term. The pre-deployment AUROC ($0.744$) is itself below
-the AUROC against untreated potential outcomes ($0.813$), because standard care
-already treats suspicious patients: the baseline is not a clean measurement
-either. Appendix~\ref{app:rd} reports the threshold-discontinuity experiment:
-the local jump at $\tau_r$ is $-0.328 \pm 0.017$ on the intention-to-treat scale
-against a global policy effect of $-0.407$ among the alerted, an underestimate
-of $19\%$, with a hump-shaped effect curve.
+post-deployment AUROC falls monotonically (to $0.637$ [$0.636$, $0.638$] at $\theta = 2.5$,
+adherence $0.9$) while events averted rise to $12.2$ [$12.0$, $12.4$] points. Standard
+decision-curve net benefit computed on observed outcomes falls from
+$+0.056$ [$+0.054$, $+0.057$] to $-0.142$ [$-0.143$, $-0.141$], crossing zero between adherence $0.3$ and
+$0.5$; the counterfactual net benefit, computed against the untreated
+potential outcome that the alert is meant to catch, stays between $+0.162$ and
+$+0.164$ throughout. In practice the counterfactual quantity is identified by the
+same randomised arm that identifies the policy term. The pre-deployment AUROC
+($0.745$) is itself below the AUROC against untreated potential outcomes
+($0.814$), because standard care already treats suspicious patients: the
+baseline is not a clean measurement either. Counting harm does not reverse the
+benefit: if each extra treatment of a patient whose untreated outcome is 0
+costs $h$ events, the policy's net benefit at adherence $0.85$ falls from
+$11.50$ to $10.56$ points at $h = 0.1$ and $9.63$ at $h = 0.2$
+(Table~\ref{tab:harm}). Appendix~\ref{app:rd} reports the threshold-discontinuity
+experiment: on the intention-to-treat scale the local jump at $\tau_r$ is
+$-0.332$ [$-0.338$, $-0.326$] against a global policy effect of $-0.405$ [$-0.406$, $-0.404$] among
+the alerted, an underestimate of $18\%$, with a hump-shaped effect curve.
+
+\paragraph{F7: semi-synthetic MIMIC-IV (E6; Figure~\ref{fig:mimic}).} To check
+that the misattribution does not depend on the synthetic covariate and
+outcome model, we repeat Experiments A and C on a ward-deterioration cohort
+from MIMIC-IV~\citep{johnson2023mimic}. The experiment is semi-synthetic.
+Real: the covariates (demographics, admission type, time since admission and
+eleven routine blood tests), the outcome under historical care (ICU admission
+or in-hospital death within 12 hours) and the period (2008--2013 before
+deployment, 2014--2019 after). Simulated: the deployment of a logistic score
+fitted to part of the early period, a $10\%$ alert rate, clinician response to
+alerts (probability $0.85$), the effect of the alert-triggered action (it
+prevents an event that would otherwise occur with probability $0.5$ and causes
+none), a $30\%$ randomised unalerted arm, and the refit-and-redeploy loop
+(Appendix~\ref{app:mimic}). No pre-deployment patient received the
+alert-triggered action, so the union-graph estimator faces the
+$\varepsilon = 0$ failure of F2. Because the simulated action only prevents
+events, the policy term is known exactly for the finite cohort. At event
+rates of a few percent most alerted patients have predicted risk below $0.5$,
+where preventing an event lowers the Brier score (the derivative of
+$\E[(r - Y)^2]$ in $P(Y{=}1)$ is $1 - 2r$); the policy term can then be
+negative, and a monitor would book an apparent improvement, not a drop, to the
+outcome mechanism, as in the low-prevalence synthetic runs of
+Table~\ref{tab:prevalence}.
+\todo{Results from \texttt{merged\_expE6.json} after the credentialed run: policy
+term and its randomised-arm estimate, the monitor's outcome term, the
+union-graph estimate, and the round-by-round events averted of the four
+update rules.}
 
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig1_attribution.pdf}
-\caption{Attribution of the Brier-score change under S3 and S4, two references
-and four estimators (mean over 30 seeds; error bar on the unclipped estimator
-is one SD of its policy term). Dashed line: total change.}\label{fig:attr}\end{figure*}
+\caption{Attribution of the Brier-score change under S3 and S4: two oracle
+references (open markers: Shapley game; filled: policy-contrast estimand) and
+four estimators. Points are means over 100 independent replicates
+($n = 20{,}000$ per environment); thick bars are 95\% bootstrap intervals of
+the mean, thin light bars the central 95\% of single replicates, i.e. the
+range one analyst's estimate can fall in. The monitor has no policy player.
+Dashed line: total change.}\label{fig:attr}\end{figure*}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig2_positivity.pdf}
-\caption{The positivity continuum. Left: policy contribution by estimator as
-the pre-deployment treatment probability in the alert-only region varies.
+\caption{The positivity continuum, S3 operating point. Left: policy
+contribution by estimator as the pre-deployment treatment probability
+$\varepsilon$ in the alert-only region varies; means over 30 independent
+replicates per $\varepsilon$ with 95\% bootstrap intervals of the mean.
 Middle: effective sample size of the policy weights. Right: at
-$\varepsilon = 0$ the bias of the union-graph estimator is constant in $n$ while
-its standard error shrinks.}\label{fig:positivity}\end{figure*}
+$\varepsilon = 0$, the union-graph estimate against its target as $n$ grows
+(10 independent replicates per $n$); bars are the median 95\% patient-level
+bootstrap interval an analyst would report, which narrows around a value of
+the wrong sign.}\label{fig:positivity}\end{figure*}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig3_retrain.pdf}
-\caption{Retrain and redeploy under performative success, eight rounds, arms
-matched on the same patient draws. Naive retraining converges to a period-2
-cycle in which events averted and observed AUROC oscillate in
-antiphase.}\label{fig:retrain}\end{figure*}
+\caption{Update rules after deployment (E3), S3 operating point. Top row:
+fixed alert threshold; bottom row: original alert rate held on independent
+calibration patients. The first three columns share one vertical scale:
+expected events averted against standard care on the same evaluation
+population, for a homogeneous effect, a heterogeneous effect ($\kappa=2$) and a
+misspecified score class. Right column: what monitoring sees for naive
+refitting under a homogeneous effect, observed AUROC in the deployed
+population (top, in antiphase with the benefit) and mean score minus mean
+untreated risk (bottom, the calibration loss the rate-held threshold hides).
+Fifty independent seeds per setting, eight rounds, matched draws across rules
+within a seed; bands are 95\% bootstrap intervals of the across-seed mean.
+The dashed line is standard care.}\label{fig:retrain}\end{figure*}
+\begin{figure}[t]\centering\includegraphics[width=\columnwidth]{figures/fig6_decision.pdf}
+\caption{Keep-or-refit rules (E1). Events averted against standard care in the
+window after the decision, by scenario, under the fixed alert threshold (top)
+and the rate-held threshold (bottom). Points are means over 200 independent
+replicates per scenario, with 95\% bootstrap intervals over replicates (most
+are smaller than the markers). Open square: the task rule (refit when the
+exogenous share exceeds one half); filled square: refit when the
+outcome-mechanism share exceeds one half; diamond: the same rule driven by the
+monitor without action logs.}\label{fig:decision}\end{figure}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig4_triage.pdf}
-\caption{Deployment-caused covariate shift (triage). Left: attribution to
-$P(X)$ by the truth, the monitor and the proposed $X$ term. Right: retrospective
-and prospective policy contrasts and the randomised-arm estimate.}\label{fig:triage}\end{figure*}
+\caption{Deployment-caused covariate shift (triage), 30 independent
+replicates per triage level. Left: attribution to $P(X)$ by the oracle Shapley
+target, the monitor and the proposed $X$ term, for a deployment-only and a
+mixed shift, with 95\% bootstrap bands of the mean. Right: retrospective and
+prospective policy contrasts (oracle) and the randomised-arm estimate with
+95\% bootstrap intervals.}\label{fig:triage}\end{figure*}
 \begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig5_utility.pdf}
-\caption{Observed AUROC, events averted, and standard versus counterfactual net
-benefit across clinician adherence and treatment effect.}\label{fig:utility}\end{figure*}
+\caption{Observed AUROC, events averted, and standard versus counterfactual
+net benefit across clinician adherence and treatment effect $\theta$, S3
+operating point otherwise. Means over 20 independent replicates per cell;
+95\% bootstrap bands of the mean are mostly narrower than the lines.}\label{fig:utility}\end{figure*}
+\begin{figure*}[t]\centering
+\IfFileExists{figures/fig7_mimic.pdf}{\includegraphics[width=\textwidth]{figures/fig7_mimic.pdf}}{\fbox{\parbox{0.9\textwidth}{\centering Figure 7 is produced by \texttt{sim2/exp\_E6\_mimic.py} on credentialed MIMIC-IV data.}}}
+\caption{Semi-synthetic MIMIC-IV (E6). Real covariates and outcomes; simulated
+deployment, clinician response, treatment effect and randomised arm (listed
+in the text). Left: attribution of the Brier-score change when only the
+deployment changes (early period before and after) and with real drift
+between periods; dashed and dotted lines mark the policy and exogenous
+targets. Right: events averted against historical care by four update rules
+under the fixed threshold. Points are means over 200 (left) and 50 (right)
+replicates that resample patients and redraw the simulated components; bars
+and bands are 95\% bootstrap intervals over replicates.}\label{fig:mimic}\end{figure*}
 
 \section{Related work}
 \label{sec:related}
@@ -438,8 +658,9 @@ Monitoring and governance that detect or regulate updates without attributing:
 \todo{Required by the workshop; a missing statement is grounds for desk
 rejection. Half a page.}
 
-\paragraph{Limitations.} Results are theoretical and synthetic; no real
-deployment logs are analysed. The decomposition is order-dependent in its
+\paragraph{Limitations.} Results are theoretical and synthetic, or
+semi-synthetic where MIMIC-IV covariates and outcomes are used with a
+simulated deployment; no real deployment logs are analysed. The decomposition is order-dependent in its
 split of interaction terms. The RD result identifies a local effect; the global
 policy term is bounded, not pointed, without homogeneity.
 
@@ -463,6 +684,157 @@ evaluation of patient outcomes.
 \section{Threshold-discontinuity experiment}
 \label{app:rd}
 \todo{Figure and text for the RD experiment (merged\_expE): local jump, effect curve, bounds; ITT scale; dilution by treated suspicious patients below the threshold.}
+
+\section{Robustness of Experiments A and B (E4)}
+\label{app:robustness}
+The deployed score remains logistic-linear. Additional covariates enter the
+linear score, and in the misspecified cells the true outcome logit also includes
+$0.65\{X_1X_3+0.3(X_3^2-1)\}$. Experiment A repeats S1--S4; Experiment B
+repeats the positivity continuum and an independent sample-size sweep at
+$\varepsilon=0$. Each row uses an independent seed block, 12 replications of
+$12{,}000$ patients per environment, and a $120{,}000$-patient oracle reference.
+
+\input{tables/e4_robustness}
+F1 survives in all four settings: with no action player, nearly the entire S3
+change is booked to the marginal outcome mechanism. F2 also survives: the
+$\varepsilon=0$ union-graph bias remains between $-0.036$ and $-0.040$ as
+sample size rises from $6{,}000$ to $96{,}000$; the full independent-seed
+sweeps and all S1--S4 results are in \texttt{merged\_expAB\_robustness.json}.
+F3 under a misspecified score class is part of E3 (Appendix~\ref{app:retrain}).
+
+\paragraph{Prevalence.} The calibrated operating point has an untreated event
+rate near $40\%$, so alerted patients mostly have predicted risk above $0.5$
+and preventing their events raises the Brier score; the derivative of
+$\E[(r - Y)^2]$ in $P(Y{=}1)$ is $1 - 2r$. Table~\ref{tab:prevalence} lowers
+the outcome intercept with the alert rate held at $20\%$. At event rates of
+$14\%$ and $7\%$ the same deployment lowers the Brier score ($-0.0076$ and
+$-0.0065$) while observed AUROC still falls, and the monitor again books the
+whole change to $P(Y \mid X)$. F1 survives at every prevalence, but at
+realistic ward-deterioration prevalence a successful alert shows up as an
+apparent improvement of the outcome mechanism, not as a drop.
+
+\input{tables/prevalence}
+
+\section{Persistent-site stepped wedge (E5)}
+\label{app:sites}
+Experiment E5 follows 48 sites for six periods. Four cohorts of 12 sites cross
+at periods 2--5; the period-5 cohort supplies not-yet-deployed controls for the
+three earlier crossovers. A fixed site characteristic $z$ shifts the site's
+covariate mean by $0.5z$ and its outcome logit by $0.4z$. Rollout priority is
+random, or $0.85z$ plus noise (correlation between early rollout and $z$ about
+$0.78$); the covariate trend is common ($0.1$ per period) or site specific
+($0.1 + 0.04z$ per period). Deployment adds a triage shift of $0.25$ to each
+covariate. A difference in differences of observed Brier losses against
+not-yet-deployed sites estimates the retrospective term at crossover, and the
+controls' mean covariate change gives the exogenous increment of the
+covariate-mean split. Two Brier-scale split estimators are compared. The
+plug-in estimator reweights the switching site's pre-rollout losses under a
+Gaussian location shift, to the controls' average covariate shift for the
+exogenous part and to the site's own shift for the total. The DiD-anchored
+estimator takes the exogenous part from the controls' observed loss change
+and the deployment-caused part as the reweighted loss change at the site's
+own shift minus that control change. Simulator counterfactuals are used only
+to measure bias.
+
+\input{tables/e5_sites}
+With random rollout order every estimate is unbiased except the plug-in split
+under site-specific trends ($+47\%$ exogenous, $-15\%$ induced), which imputes
+the average trend into each site's loss although the loss responds to a trend
+differently at sites with different $z$. With order linked to $z$, the
+retrospective difference in differences is biased ($-10.5\%$ with common
+trends, $-5.6\%$ with site-specific ones), because parallel covariate trends do
+not produce parallel Brier trends when baseline risk differs, and the
+DiD-anchored split inherits that bias; the plug-in split is unbiased with
+common trends, where its location model holds at every site. No estimator is
+unbiased in the linked, site-specific cell. These results concern the
+crossover cohorts with a not-yet-deployed comparison; the last cohort's effect
+is not identified without an additional period or assumption.
+
+\section{Update rules after deployment (E3)}
+\label{app:retrain}
+Each seed draws an evaluation population and an independent calibration
+population of $20{,}000$ patients, and in each round a training sample of
+$8{,}000$ patients treated under the current rule; all rules share these draws
+(common random numbers), and each of the six settings has its own seed block
+of 50 seeds. Events are expected values on the evaluation population, without
+outcome noise, against standard care on the same population. The
+heterogeneous effect is $\theta + \kappa (X_2 - X_1)/\sqrt{2}$ on the logit
+scale; at $\kappa = 2$ the action is harmful for about $11\%$ of patients. The
+misspecified truth adds the E4 term $0.65\{X_1X_2 + 0.3(X_2^2 - 1)\}$ to the
+untreated logit; there the original score is the population-best logistic
+approximation to the untreated risk, so a correct and stable update
+reproduces it. The weighted refit uses $1/P(A = 0 \mid X)$ from the alert rule
+and the response probabilities ($0.8$ for suspicious patients, $0.85$ for
+alerted others, $\varepsilon$ otherwise).
+
+\input{tables/e3_retraining}
+Paired round-eight differences (95\% bootstrap intervals over seeds): naive
+refit minus keep, $-6.25$ [$-6.33$, $-6.18$] points with the fixed threshold
+and $-2.65$ [$-2.71$, $-2.59$] rate-held, both at $\kappa = 2$; conditioning
+with main effects minus keep, $-2.35$ [$-2.45$, $-2.26$] (fixed, $\kappa = 2$);
+weighted refit minus keep, $+0.06$ [$-0.04$, $+0.15$] (fixed, misspecified).
+
+\section{Decision rules (E1)}
+\label{app:decision}
+Each replicate draws pre-deployment and monitoring-window samples of $20{,}000$
+patients (the monitoring window of S3 and S4 includes the $30\%$ randomised
+unalerted arm), computes the two attributions, refits naively on the deployed
+arm of the monitoring window, fits the reference refits, and evaluates each
+choice on $40{,}000$ patients from the next window. The rules driven by the
+oracle decomposition (in \texttt{merged\_expE1.json}) show that the loss of the
+exogenous-share rule in S1 is a property of the rule, not of estimation error:
+driven by the oracle it also refits in S1.
+
+\input{tables/e1_decision_appendix}
+
+\section{Intervals, coverage and harm (E7)}
+\label{app:intervals}
+The numbers for Experiments A, B, D, E and F in Section~\ref{sec:sim} come
+from a rerun with one seed block per row that stores every replicate
+(\texttt{merged\_expE7.json}); bracketed intervals are 95\% percentile
+bootstrap intervals of the mean over replicates. They measure Monte Carlo
+error. To show what an analyst would report from one dataset, every replicate
+of A and B also gets a patient-level bootstrap (300 resamples;
+pre-deployment patients resampled, post-deployment patients resampled within
+randomised arm). The proposed decomposition's intervals cover its own estimand in $90\%$ to $99\%$ of replicates for every non-degenerate term in S1 to S4 (Table~\ref{tab:coverage}), all but one within the range a nominal $95\%$ gives with 100 replicates (about $91\%$ to $99\%$), and the policy term in $93\%$ to $100\%$ at every $\varepsilon$ (Table~\ref{tab:positivity-ci}). The monitor's intervals cover the marginal game it estimates at similar rates ($88\%$ to $99\%$) but never cover the policy-contrast outcome term in S3 or S4: the analyst sees a tight, well-calibrated interval for the wrong estimand. The unclipped union-graph estimator's intervals are 4.4 to 4.7 times wider than the proposed ones and cover their target in $87\%$ (S3) and $80\%$ (S4) of replicates; clipped, they never cover it. At $\varepsilon = 0$ the union-graph interval excludes the target at every sample size and narrows as $n$ grows.
+
+\input{tables/e7_coverage}
+\input{tables/e7_positivity}
+
+\emph{Harm for unnecessary treatment.} Events averted count only benefit.
+Charging each extra treatment given to a patient whose untreated outcome is 0
+a harm of $h$ events gives the net figures of Table~\ref{tab:harm}.
+At the S3 operating point with adherence $0.85$ the alert policy averts $11.50$ points; with $h = 0.05$, $0.1$ and $0.2$ the net figures are $11.03$, $10.56$ and $9.63$. The E3 comparison is unchanged by the penalty (naive refitting's net benefit stays near zero while keeping the score loses the same fraction as the policy). The same penalty leaves the E1 ranking unchanged for
+$h \le 0.2$ (Table~\ref{tab:decision-app}).
+
+\input{tables/e7_harm}
+
+\section{Semi-synthetic MIMIC-IV experiment (E6)}
+\label{app:mimic}
+\emph{Cohort.} Adult ward inpatients in MIMIC-IV~\citep{johnson2023mimic}.
+One prediction time per admission, drawn at random among creatinine draws
+taken on a ward (a care unit that is not an intensive care, emergency,
+recovery, obstetric, newborn or psychiatric unit) at least four hours after
+admission. Features: age, sex, emergency admission, hours since admission, a
+prior ICU stay in the same admission, and the last value in the preceding
+24 hours of creatinine, urea nitrogen, sodium, potassium, chloride,
+bicarbonate, glucose, anion gap, white cells, haemoglobin and platelets, with
+missing indicators. Outcome: ICU admission or in-hospital death within
+12 hours. Pre-deployment period: patients with anchor year group 2008--2013;
+post-deployment period: 2014--2019.
+\emph{Simulated components.} The score is a logistic regression fitted to
+$40\%$ of early-period patients; alerts fire at a $10\%$ alert rate on those
+patients; an alert is acted upon with probability $0.85$; an acted-upon alert
+prevents an event that would otherwise occur with probability $0.5$ and never
+causes one; $30\%$ of post-deployment patients form a randomised unalerted
+arm; the refit loop runs for eight rounds on post-deployment patients.
+Everything else, including the outcome under standard care, is observed.
+\emph{Targets.} The policy contrast and the total exogenous change are known
+for the finite pools in expectation over the simulated components; the split
+of the exogenous change into covariate and outcome parts has no ground truth
+in real data and is reported, not scored.
+\todo{Numbers and Figure~\ref{fig:mimic} from \texttt{merged\_expE6.json},
+produced by a local run on credentialed data (\texttt{docs/E6\_MIMIC.md}).}
 
 \section{Proofs}
 \todo{Proposition~\ref{prop:absence}: exhibit $x, a$ with support mismatch;
