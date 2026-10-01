@@ -18,9 +18,10 @@ log; the scripts print and save aggregates only.
 
 Until access is granted, an open stand-in runs the same experiment on the
 PhysioNet/CinC Challenge 2019 data, with two hospitals in place of the two
-periods (`docs/E6_MIMIC.md`, "Open stand-in"; outputs in `figures/e6_open/`,
-not in the manuscript). Attribution reproduces F1 and F2 there; the retraining
-analogue is underpowered at its 1.8% event rate.
+periods, in both directions (`docs/E6_MIMIC.md`, "Open stand-in"; outputs in
+`figures/e6_open/`, not in the manuscript). It reproduces F1, F2 and the
+recovery of the policy term by the randomised arm in both directions, and F3
+with hospital A (3.6% events) as the new site.
 
 ### 1.1 Smoke test on the open demo (optional, recommended)
 
@@ -107,14 +108,18 @@ by the report step are committed; `data/` stays untracked.
 ## 2. Decisions for the team
 
 - **Prevalence** (appendix Tables `tab:prevalence` and `tab:prevalence-est`).
-  At a realistic event rate successful alerting lowers the Brier score and the
-  monitor books the improvement to the outcome mechanism. The new
-  low-prevalence run (6.6%, alert rate 20%) shows F1 and F4 hold with
-  estimators, not only oracle values (see `JOSH_E1_E7_NOTES.md`). The
-  introduction's "performance drops" premise (W1) and the results framing (W7)
-  still need a decision: state the prevalence dependence, move the
-  low-prevalence point into the main text, or also attribute a metric that
-  falls at every prevalence (AUROC does).
+  The "performance drops" premise (W1) holds for discrimination and
+  calibration at every prevalence: after a successful deployment AUROC falls
+  and the score over-predicts (`figures/performance_drop.json`, synthetic grid
+  and both hospitals of the open stand-in). Only the Brier score, the metric
+  the paper decomposes, changes sign: it rises at the calibrated operating
+  point and falls at realistic event rates, where the monitor books the
+  improvement to the outcome mechanism. The low-prevalence run (6.6%, alert
+  rate 20%) shows F1 and F4 hold with estimators, not only oracle values (see
+  `JOSH_E1_E7_NOTES.md`). Decide how W1 and W7 say this: report the drop in
+  AUROC and calibration alongside the Brier change, move the low-prevalence
+  point into the main text, or also attribute a metric that falls at every
+  prevalence.
 - **E1 headline rule.** The task rule (refit when the exogenous share exceeds
   one half) refits needlessly under pure covariate shift. The outcome-share
   rule has zero regret in S1 to S4 at the calibrated point; at 6.6% prevalence

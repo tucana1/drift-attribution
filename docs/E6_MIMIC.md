@@ -152,48 +152,66 @@ group (v3.x), `covid` (`--late "2020 - 2022"`), with 100 and 30 replicates.
 
 With a 5 to 10% event rate, alerted patients mostly have predicted risk below
 0.5. Preventing their events then lowers the Brier score (the derivative of
-E[(r - Y)^2] in P(Y = 1) is 1 - 2r), so the policy term is negative:
-deployment makes the score look better on the Brier scale while observed
-AUROC falls. The synthetic operating point (event rate near 40%) gives the
-opposite sign. The attribution question is unchanged (the monitor books the
-policy term to the outcome mechanism), but the text should not describe the
-semi-synthetic result as a performance drop unless the numbers show one.
+E[(r - Y)^2] in P(Y = 1) is 1 - 2r), so the policy term is negative. The score
+still degrades as a model: AUROC falls, and it over-predicts (observed over
+expected events and the calibration slope both fall). `sim2/check_performance_drop.py`
+(`figures/performance_drop.json`) shows this at every prevalence of the
+synthetic grid and at both hospitals of the open stand-in; only the sign of the
+Brier change depends on prevalence (positive at the 40% operating point). The
+attribution question is unchanged (the monitor books the policy term to the
+outcome mechanism); the text should report the drop in discrimination and
+calibration and the sign of the Brier change separately.
 
 ## Open stand-in (until MIMIC-IV access)
 
 `sim2/e6_sepsis_cohort.py` builds the same cohort format from the
 PhysioNet/CinC Challenge 2019 training data (open, CC BY 4.0; Reyna et al.,
 Crit Care Med 2020): 40,336 ICU stays from two hospital systems, hourly vitals
-and labs. The two hospitals take the place of the two periods (score fitted at
-A, real shift from A to B). One prediction time per stay, at least 4 h into it
-and before sepsis onset; outcome sepsis onset within 12 h; features age, sex,
-ICU type, hours in the ICU, hours in hospital before ICU admission, and the
-last value in the preceding 24 h of six vital signs and ten labs. The files
-(313 MB) come from PhysioNet's open S3 mirror and are checked against the S3
-checksums.
+and labs. The two hospitals take the place of the two periods, in both
+directions (score fitted at A with a shift to B, and the reverse). One
+prediction time per stay, at least 4 h into it and before sepsis onset;
+outcome sepsis onset within 12 h; features age, sex, ICU type, hours in the
+ICU, hours in hospital before ICU admission, and the last value in the
+preceding 24 h of six vital signs and eight labs. Chloride and bicarbonate are
+left out: hospital B almost never records them, so their missing indicators
+identify the hospital and the density ratio between hospitals degenerates
+(hospital classifier AUROC 0.98 with them, 0.79 without). 426 stays labelled
+septic from their first hour have no valid prediction time; the other 39,910
+are all used, and every refit uses the whole training pool (`--n-train 0`).
+The files (313 MB) come from PhysioNet's open S3 mirror and are checked
+against the S3 checksums; 2,000 cohort rows were rebuilt independently from
+the raw files without a mismatch.
 
 ```sh
 .venv/bin/python sim2/e6_sepsis_cohort.py          # fetch and build data/e6_sepsis_cohort.npz
-.venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_sepsis_cohort.npz --early A --late B \
-    --output figures/e6_open/merged_expE6_sepsis2019.json --figure figures/e6_open/fig_e6_sepsis2019.pdf
+.venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_sepsis_cohort.npz --early A --late B --n-train 0 \
+    --output figures/e6_open/merged_expE6_sepsis2019_AtoB.json --figure figures/e6_open/fig_e6_sepsis2019_AtoB.pdf
+.venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_sepsis_cohort.npz --early B --late A --n-train 0 \
+    --output figures/e6_open/merged_expE6_sepsis2019_BtoA.json --figure figures/e6_open/fig_e6_sepsis2019_BtoA.pdf
 ```
 
 `exp_E6_mimic.py` refuses to write a non-MIMIC cohort into the E6 slot; the
 stand-in lives in `figures/e6_open/` and is not in the manuscript.
 
-Result (1 October): 39,910 stays, event rate 3.6% at A and 1.8% at B, score
-AUROC 0.711 at A (held out) and 0.613 at B. With deployment only, the policy
-contrast is -0.0033 (deployment lowers the Brier score at this prevalence); the
-monitor books -0.0033 [-0.0036, -0.0029] to P(Y | X) and nothing to P(X), the
-randomised arm recovers -0.0032 [-0.0037, -0.0027], and the union-graph
-estimator with oracle weights returns -0.0056 [-0.0057, -0.0055]. With the
-hospital shift, the proposed estimator recovers the policy term (-0.0010
-against -0.0010) and the exogenous change (-0.0162). The retraining analogue
-is underpowered at 1.8% events: every refit at B averts fewer events than the
-original score (0.05 to 0.07 against 0.14 points, fixed threshold), mostly
-through recalibration to the lower event rate and small training samples;
-refitting on untreated patients beats naive refitting by 0.016 [0.011, 0.021]
-points with the fixed threshold and not with the rate-held one.
+Results (1 October; event rate 3.6% at A, 1.8% at B):
+
+- Deployment only. The policy contrast is -0.0033 at A and -0.0016 at B
+  (deployment lowers the Brier score at these event rates, while AUROC falls
+  by 0.036 and 0.040 and the score over-predicts). The monitor books the whole
+  observed change to P(Y | X) (-0.0032 at A, -0.0014 at B) and nothing to P(X).
+  The randomised arm recovers the policy term (-0.0032 and -0.0015, bias
+  intervals covering zero). The union-graph estimator with oracle weights
+  overshoots by 66% and 46%.
+- Shift and deployment. The randomised arm recovers the policy term in both
+  directions (-0.0007 against -0.0007; -0.0057 against -0.0057) and the
+  exogenous change. Moving from B to A, the alert's benefit hides a real
+  deterioration (+0.0181): the observed change is +0.0126, and the monitor
+  assigns -0.0022 to P(Y | X) where the proposed decomposition finds +0.0020.
+- Retraining at the new hospital, round 8, fixed threshold. At A (3.6% events)
+  naive refitting averts 0.72 points and refitting on untreated patients 0.88
+  (difference +0.16 [0.14, 0.18]); holding the alert rate reduces the
+  difference to +0.02. At B (1.8% events) the difference is +0.017 [0.014,
+  0.020]. The weighted refit falls between the two in both directions.
 
 ## Testing without MIMIC-IV
 

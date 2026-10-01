@@ -162,7 +162,10 @@ the policy term (-0.0178) offsets most of the outcome-mechanism shift
 masks a real deterioration. In E1 the monitor-driven rule refits in every S3
 replicate and loses the benefit, the outcome-share rule loses 0.55 points in
 S4 (its oracle share is 0.52, at the cut-off), and refitting on untreated
-patients matches or beats keeping and naive refitting everywhere.
+patients matches or beats keeping and naive refitting everywhere. The score
+still degrades as a model at this prevalence: AUROC falls and the score
+over-predicts after deployment (`sim2/check_performance_drop.py`); only the
+Brier change is negative.
 
 **E6.** Changes before the first credentialed run:
 

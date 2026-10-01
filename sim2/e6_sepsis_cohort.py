@@ -17,8 +17,9 @@ among hours at least 4 h into the stay and before sepsis onset. Features: age,
 sex, ICU type (medical or surgical), hours in the ICU, hours in hospital before
 ICU admission, and the last value in the preceding 24 h of heart rate,
 systolic and mean arterial pressure, respiratory rate, temperature, oxygen
-saturation, creatinine, urea nitrogen, potassium, chloride, bicarbonate,
-glucose, white cells, haemoglobin, platelets and lactate. Outcome: sepsis
+saturation, creatinine, urea nitrogen, potassium, glucose, white cells,
+haemoglobin, platelets and lactate (chloride and bicarbonate are not recorded
+at hospital B). Outcome: sepsis
 onset within 12 h, where onset is 6 h after the first positive SepsisLabel
 (the Challenge labels hours from 6 h before Sepsis-3 onset). Stays labelled
 positive from their first hour are excluded, since their onset time is not
@@ -45,10 +46,13 @@ import numpy as np
 BUCKET = "https://physionet-open.s3.amazonaws.com"
 PREFIX = "challenge-2019/1.0.0/training/"
 SOURCE = "PhysioNet/CinC Challenge 2019 (open, CC BY 4.0)"
+# Chloride and bicarbonate are left out: hospital B almost never records them (95% and 99% missing against
+# 17% at A), so their missing indicators identify the hospital and the density ratio between hospitals
+# degenerates (hospital classifier AUROC 0.98 with them, 0.79 without).
 VARS = (("hr", "HR"), ("sbp", "SBP"), ("map", "MAP"), ("resp", "Resp"), ("temp", "Temp"), ("o2sat", "O2Sat"),
         ("creatinine", "Creatinine"), ("urea_nitrogen", "BUN"), ("potassium", "Potassium"),
-        ("chloride", "Chloride"), ("bicarbonate", "HCO3"), ("glucose", "Glucose"), ("wbc", "WBC"),
-        ("hemoglobin", "Hgb"), ("platelets", "Platelets"), ("lactate", "Lactate"))
+        ("glucose", "Glucose"), ("wbc", "WBC"), ("hemoglobin", "Hgb"), ("platelets", "Platelets"),
+        ("lactate", "Lactate"))
 HORIZON_HOURS = 12
 LOOKBACK_HOURS = 24
 MIN_HOURS = 4
@@ -162,9 +166,9 @@ def build(root, seed=20260929):
             "outcome": f"sepsis onset (Challenge 2019 labels, Sepsis-3) within {HORIZON_HOURS} h",
             "period_labels": {"A": "hospital system A", "B": "hospital system B"},
             "real_components": ["covariates", f"outcome under historical care (sepsis onset within {HORIZON_HOURS} h)",
-                                "hospital system (A before deployment, B after)"],
-            "scenario_labels": {"deploy_only": "deployment only\n(hospital A)",
-                                "drift_and_deploy": "hospital shift\nand deployment"}}
+                                "hospital system ({early} before deployment, {late} after)"],
+            "scenario_labels": {"deploy_only": "deployment only\n(hospital {early})",
+                                "drift_and_deploy": "shift to hospital {late}\nand deployment"}}
     pid = np.asarray(rows["pid"], np.int64)
     return {"X_raw": X, "feature_names": np.array(names), "y": np.asarray(rows["y"], int), "period": site,
             "careunit": careunit, "subject_id": pid, "hadm_id": pid, "t": np.asarray(rows["t"]).astype(int).astype(str),

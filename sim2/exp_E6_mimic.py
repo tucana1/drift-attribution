@@ -307,6 +307,7 @@ def c_replicate(job):
     c, f0, tau, args = STATE["cohort"], STATE["f0"], STATE["tau"], STATE["args"]
     rule = ("fixed", "rate")[t_index]
     train_pool, eval_pool, held_rate = STATE["c_train"], STATE["c_eval"], STATE["held_rate"]
+    n_train = args.n_train if args.n_train > 0 else len(train_pool)
     x_eval, y_eval = c.x[eval_pool], c.y[eval_pool]
     rows = []
     for arm in ARMS_C:
@@ -325,8 +326,8 @@ def c_replicate(job):
                 continue
             # common random numbers across arms: the same patients and uniforms in each round
             rng = rng_for(args.root_seed, EXPERIMENT, 2, t_index, rep, rnd)
-            idx = rng.choice(train_pool, size=args.n_train, replace=True)
-            u_act, u_prev = rng.random(args.n_train), rng.random(args.n_train)
+            idx = rng.choice(train_pool, size=n_train, replace=True)
+            u_act, u_prev = rng.random(n_train), rng.random(n_train)
             xb, yb = c.x[idx], c.y[idx]
             alert_b = score(xb) > thr
             p_a = np.where(alert_b, args.p_act, 0.0)
@@ -354,6 +355,7 @@ def run_c(c, f0, tau, args):
                                 **{k: summarize([r[k] for r in cell], seed=rnd)
                                    for k in ("events_averted_pp", "alert_rate", "observed_auroc", "calibration_in_large")}})
     return {"held_alert_rate": STATE["held_rate"], "n_train_pool": int(len(STATE["c_train"])),
+            "n_train_per_round": int(args.n_train if args.n_train > 0 else len(STATE["c_train"])),
             "n_eval_pool": int(len(STATE["c_eval"])), "event_rate_eval_pool": float(c.y[STATE["c_eval"]].mean()),
             "summary": summary, "runs": rows}
 
@@ -442,7 +444,7 @@ def main():
     parser.add_argument("--reps-a", type=int, default=200)
     parser.add_argument("--reps-c", type=int, default=50)
     parser.add_argument("--rounds", type=int, default=8)
-    parser.add_argument("--n-train", type=int, default=8000)
+    parser.add_argument("--n-train", type=int, default=8000, help="training sample per refit; 0 = the whole training pool")
     parser.add_argument("--root-seed", type=int, default=2026092906)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--tag", default=None, help="sensitivity run: write merged_expE6_<tag>.json and fig7_mimic_<tag>.pdf")
@@ -492,10 +494,12 @@ def main():
                                  f"randomised unalerted arm ({args.control_frac:.0%} of post-deployment patients)",
                                  "retrain-and-redeploy loop"],
         "data_source": c.source,
-        "real_components": (c.extraction or {}).get("real_components",
-                                                   ["covariates", "outcome under historical care (ICU admission or death within 12 h)",
-                                                    "period (anchor_year_group)"]),
-        "scenario_labels": (c.extraction or {}).get("scenario_labels", {}),
+        "real_components": [s.format(early="/".join(args.early), late="/".join(args.late)) for s in
+                            (c.extraction or {}).get("real_components",
+                                                     ["covariates", "outcome under historical care (ICU admission or death within 12 h)",
+                                                      "period (anchor_year_group)"])],
+        "scenario_labels": {k: v.format(early="/".join(args.early), late="/".join(args.late))
+                            for k, v in (c.extraction or {}).get("scenario_labels", {}).items()},
         "parameters": {k: v for k, v in vars(args).items() if k not in ("cohort", "output", "figure", "workers")}
                       | {"experiment_block": EXPERIMENT},
         "cohort": {"admissions": int(len(c.y)), "patients": int(len(np.unique(c.subject))),
