@@ -21,6 +21,10 @@ Arms (paired within a seed: same evaluation, calibration and training draws).
   untreated                 refit on patients with A = 0
   untreated_ipw             refit on A = 0, weighted by 1 / P(A = 0 | X) from the
                             logged alert rule and response probabilities
+  untreated_ipw_est         the same with P(A = 1 | X) estimated by a logistic
+                            regression of A on X, the alert and their
+                            interaction (no response probabilities needed;
+                            estimates capped at 0.95)
   conditional_main          refit on (X, A), predict at A = 0
   conditional_interactions  refit on (X, A, X * A), predict at A = 0
 
@@ -51,7 +55,7 @@ from dgp import r_hat, suspicion
 from merged import make_cfg
 
 ARMS = ("keep", "naive", "unalerted", "untreated", "untreated_ipw",
-        "conditional_main", "conditional_interactions")
+        "conditional_main", "conditional_interactions", "untreated_ipw_est")
 SETTINGS = (
     # name, threshold rule, kappa, nonlinear coefficient
     ("fixed_k0", "fixed", 0.0, 0.0),
@@ -110,6 +114,14 @@ def refit(arm, x, action, outcome, current_score, threshold, action_probability)
     if arm == "untreated_ipw":
         keep = action == 0
         model.fit(x[keep], outcome[keep], sample_weight=1.0 / (1.0 - action_probability[keep]))
+        return lambda xx: model.predict_proba(xx)[:, 1]
+    if arm == "untreated_ipw_est":
+        alert = (current_score > threshold).astype(float)
+        design = np.column_stack((x, alert, x * alert[:, None]))
+        propensity = LogisticRegression(C=1e6, max_iter=5000).fit(design, action)
+        p_hat = np.minimum(propensity.predict_proba(design)[:, 1], 0.95)
+        keep = action == 0
+        model.fit(x[keep], outcome[keep], sample_weight=1.0 / (1.0 - p_hat[keep]))
         return lambda xx: model.predict_proba(xx)[:, 1]
     keep = {"naive": np.ones(len(action), bool), "untreated": action == 0,
             "unalerted": current_score <= threshold}[arm]

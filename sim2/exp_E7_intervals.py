@@ -7,9 +7,21 @@ over replicates (Monte Carlo uncertainty of the simulation mean).
 
   A   attribution under S1-S4 (Figure 1, F1, the two-references paragraph)
   B   positivity continuum and n scaling at eps = 0 (Figure 2, F2)
-  D   AUROC, events averted, standard and counterfactual net benefit (Figure 5, F5)
-  E   threshold discontinuity (appendix)
-  F   deployment-caused covariate shift (Figure 4, F4)
+  D   AUROC, events averted, standard and counterfactual net benefit (Figure 5, F6)
+  E   threshold discontinuity (F6, appendix)
+  F   deployment-caused covariate shift (Figure 4, F5)
+
+Threshold discontinuity. The jump at tau identifies the local effect of the
+alert policy, E[Y(pi1) - Y(pi0) | r = tau]. Its global counterpart is the
+policy effect among the alerted, E[Y(pi1) - Y(pi0) | r > tau] (expected
+values given X), not the effect of treatment against no treatment: alerted
+patients who are also suspicious are treated with probability q_hi under both
+policies. The treatment effect among the alerted is kept for reference.
+
+Net benefit. The counterfactual net benefit uses the untreated outcome Y(0),
+which no arm observes. The randomised unalerted arm identifies net benefit
+against outcomes under standard care, Y(pi0), reported as nb_standard_care
+(expected value given X).
 
 Analyst-facing intervals. For A (S1-S4) and for B, each replicate also gets a
 patient-level bootstrap (resampling pre- and post-deployment patients, the
@@ -37,6 +49,7 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 import argparse
 import itertools
+import json
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -46,12 +59,12 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import rng_for, seed_block, summarize, write_json
+from common import ROOT, rng_for, seed_block, summarize, write_json
 from dgp import (_weights_union3, brier, is_values, mu_of, naive2_values, p_treat, p_y1, r_hat,
                  sample_env, shapley, suspicion)
 from exp_AB_robustness import truth_values_expected
 from exp_F_triage import union3_analyst
-from merged import E3, SCEN, make_cfg, naive2_est, sample_po, truth_E3_decomp
+from merged import E3, SCEN, make_cfg, make_cfg_at, naive2_est, sample_po, truth_E3_decomp
 
 EXPERIMENT = 7
 P3 = ("X", "pi", "Y")
@@ -161,9 +174,14 @@ def analyst_bootstrap(cfg, s0, s1, x_is, a_is, y_is, boots, rng):
 
 
 # ----------------------------------------------------------------------------- A
+def scenario_cfg(scenario, args):
+    """Scenario at the default operating point, or at --b0 / --alert-rate (realistic prevalence)."""
+    return make_cfg_at(args.b0, args.alert_rate, **SCEN[scenario])
+
+
 def a_replicate(job):
     s_index, scenario, rep, args = job
-    cfg = make_cfg(**SCEN[scenario])
+    cfg = scenario_cfg(scenario, args)
     rng = rng_for(args.root_seed, EXPERIMENT, 1, s_index, rep)
     s0 = sample_po(cfg, set(), args.n, rng)
     s1 = sample_po(cfg, set(P3), args.n, rng, control_frac=0.3)
@@ -254,12 +272,19 @@ def d_replicate(job):
     x = s1["x"]
     q0, q1 = p_y1(cfg, x, np.zeros(len(x)), False), p_y1(cfg, x, np.ones(len(x)), False)
     p0, p1 = p_treat(cfg, x, False), p_treat(cfg, x, True)
+    q_std = q0 + p0 * (q1 - q0)                 # event probability under standard care, Y(pi0)
+    nb_standard_care = np.mean(flag * q_std) - np.mean(flag * (1 - q_std)) * t / (1 - t)
     return {"theta": theta, "p_alert": pa, "rep": rep,
             "auroc_e0": float(roc_auc_score(s0["y"], s0["r"])), "auroc_e1": float(roc_auc_score(s1["y"], s1["r"])),
             "auroc_cf": float(roc_auc_score(s1["y0"], s1["r"])), "averted_observed": float(s0["y"].mean() - s1["y"].mean()),
             "averted_expected": float(np.mean(p1 * (q0 - q1)) - np.mean(p0 * (q0 - q1))),
             "extra_unnecessary": float(np.mean((p1 - p0) * (1 - q0))),
-            "nb_std": float(nb_std), "nb_cf": float(nb_cf)}
+            "nb_std": float(nb_std), "nb_cf": float(nb_cf), "nb_standard_care": float(nb_standard_care)}
+
+
+def rd_grid(cfg):
+    """Score bins above the alert threshold for the policy-effect curve."""
+    return np.linspace(cfg.tau_r, 0.95, 13)
 
 
 def e_replicate(job):
@@ -267,14 +292,21 @@ def e_replicate(job):
     cfg = make_cfg(deploy=True)
     rng = rng_for(args.root_seed, EXPERIMENT, 5, 0, rep)
     s1 = sample_po(cfg, {"pi"}, args.n_e, rng)
-    alerted = s1["r"] > cfg.tau_r
-    true_global = float(np.mean((s1["y"] - s1["y0"])[alerted]))
+    x, r = s1["x"], s1["r"]
+    alerted = r > cfg.tau_r
+    q0, q1 = p_y1(cfg, x, np.zeros(len(x)), False), p_y1(cfg, x, np.ones(len(x)), False)
+    policy = (s1["p1"] - s1["p0"]) * (q1 - q0)          # E[Y(pi1) - Y(pi0) | x]
     h = 0.04
-    m = np.abs(s1["r"] - cfg.tau_r) < h
-    rr = s1["r"][m] - cfg.tau_r
+    m = np.abs(r - cfg.tau_r) < h
+    rr = r[m] - cfg.tau_r
     side = (rr > 0).astype(float)
     coef, *_ = np.linalg.lstsq(np.c_[np.ones(m.sum()), rr, side, rr * side], s1["y"][m], rcond=None)
-    return {"rep": rep, "true_global": true_global, "rd_local": float(coef[2])}
+    grid = rd_grid(cfg)
+    curve = [float(np.mean(policy[alerted & (r >= a) & (r < b)])) if np.sum(alerted & (r >= a) & (r < b)) > 30
+             else float("nan") for a, b in zip(grid[:-1], grid[1:])]
+    return {"rep": rep, "policy_effect_alerted": float(np.mean(policy[alerted])),
+            "treatment_effect_alerted": float(np.mean((s1["y"] - s1["y0"])[alerted])),
+            "rd_local": float(coef[2]), "policy_effect_curve": curve}
 
 
 def prospective_expected(cfg, n, rng):
@@ -299,8 +331,10 @@ def f_replicate(job):
     uo = shapley(is_values(cfg, list(P3), n=args.n, metric="brier", seed=seed_or)[0], list(P3))
     ua = union3_analyst(cfg, n=args.n, seed=seed_block(args.root_seed, EXPERIMENT, 62, row_index, rep))
     e3 = E3(cfg, s0, s1, "rollout")
+    n2 = naive2_est(cfg, s0, s1)
     return {"setting": setting, "triage": triage, "rep": rep, "uo_X": uo["X"], "uo_pi": uo["pi"],
-            "ua_X": ua["X"], "ua_pi": ua["pi"], "e3_X": e3["X"], "e3_Y": e3["Y"], "e3_pi": e3["pi"]}
+            "ua_X": ua["X"], "ua_pi": ua["pi"], "e3_X": e3["X"], "e3_Y": e3["Y"], "e3_pi": e3["pi"],
+            "n2_X": float(n2["X"]), "n2_Ygx": float(n2["Ygx"])}
 
 
 # ----------------------------------------------------------------------------- driver
@@ -324,7 +358,7 @@ def coverage(rows, key, target):
 def run_a(args, out):
     refs, n2refs = {}, {}
     for s_index, scenario in enumerate(SCEN):
-        cfg = make_cfg(**SCEN[scenario])
+        cfg = scenario_cfg(scenario, args)
         refs[scenario] = reference_summary(oracle_tables(cfg, args.n_truth, args.truth_blocks, args.root_seed, s_index))
         blocks = [naive2_reference(cfg, args.n_truth, rng_for(args.root_seed, EXPERIMENT, 910, s_index, b))
                   for b in range(args.truth_blocks)]
@@ -349,7 +383,11 @@ def run_a(args, out):
             "union3_raw_pi_vs_shapley": coverage(rr, "u_raw_pi", ref["shapley_pi"]["value"]),
             "union3_clip_pi_vs_shapley": coverage(rr, "u_clip_pi", ref["shapley_pi"]["value"]),
         }
-    out["A"] = {"references": refs, "naive2_references": n2refs, "summary": summary,
+    cfg = scenario_cfg("S3", args)
+    x = rng_for(args.root_seed, EXPERIMENT, 930, 0).normal(size=(args.n_truth, cfg.d))
+    out["A"] = {"operating_point": {"b0": cfg.b0, "tau_r": cfg.tau_r, "alert_rate": float(np.mean(r_hat(cfg, x) > cfg.tau_r)),
+                                    "event_rate_untreated": float(np.mean(p_y1(cfg, x, np.zeros(len(x)), False)))},
+                "references": refs, "naive2_references": n2refs, "summary": summary,
                 "bootstrap_coverage": cov, "runs": rows}
 
 
@@ -399,7 +437,7 @@ def run_d(args, out):
         rr = [r for r in rows if r["theta"] == t and r["p_alert"] == p]
         entry = {"theta": t, "p_alert": p}
         for k in ("auroc_e0", "auroc_e1", "auroc_cf", "averted_observed", "averted_expected",
-                  "extra_unnecessary", "nb_std", "nb_cf"):
+                  "extra_unnecessary", "nb_std", "nb_cf", "nb_standard_care"):
             entry[k] = summarize([r[k] for r in rr], seed=3)
         entry["net_averted_pp_by_harm"] = {str(h): summarize([100 * (r["averted_expected"] - h * r["extra_unnecessary"]) for r in rr], seed=4)
                                             for h in HARM_GRID}
@@ -409,11 +447,16 @@ def run_d(args, out):
 
 def run_e(args, out):
     rows = pmap(e_replicate, [(rep, args) for rep in range(args.reps_e)], args.workers)
-    gap = [r["rd_local"] - r["true_global"] for r in rows]
-    out["E"] = {"true_global": summarize([r["true_global"] for r in rows], seed=5),
-                "rd_local": summarize([r["rd_local"] for r in rows], seed=6),
-                "rd_minus_global": summarize(gap, seed=7),
-                "relative_underestimate": float(1 - np.mean([r["rd_local"] for r in rows]) / np.mean([r["true_global"] for r in rows])),
+    rd = np.array([r["rd_local"] for r in rows])
+    policy = np.array([r["policy_effect_alerted"] for r in rows])
+    curve = np.array([r["policy_effect_curve"] for r in rows], float)
+    out["E"] = {"policy_effect_alerted": summarize(policy, seed=5),
+                "treatment_effect_alerted": summarize([r["treatment_effect_alerted"] for r in rows], seed=8),
+                "rd_local": summarize(rd, seed=6),
+                "rd_minus_policy": summarize(rd - policy, seed=7),
+                "rd_relative_to_policy": float(rd.mean() / policy.mean()),
+                "policy_effect_curve": {"bin_edges": [float(v) for v in rd_grid(make_cfg(deploy=True))],
+                                        "mean": [float(v) for v in np.nanmean(curve, 0)]},
                 "runs": rows}
 
 
@@ -439,7 +482,7 @@ def run_f(args, out):
     for ref in refs:
         rr = [r for r in rows if r["setting"] == ref["setting"] and r["triage"] == ref["triage"]]
         entry = dict(ref)
-        for k in ("uo_X", "uo_pi", "ua_X", "ua_pi", "e3_X", "e3_Y", "e3_pi"):
+        for k in ("uo_X", "uo_pi", "ua_X", "ua_pi", "e3_X", "e3_Y", "e3_pi", "n2_X", "n2_Ygx"):
             entry[k] = summarize([r[k] for r in rr], seed=8)
         entry["e3_pi_minus_prospective"] = summarize([r["e3_pi"] - ref["prospective"]["value"] for r in rr], seed=9)
         summary.append(entry)
@@ -466,12 +509,25 @@ def main():
     parser.add_argument("--boots-n", type=int, default=200)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--root-seed", type=int, default=2026092907)
+    parser.add_argument("--b0", type=float, default=None,
+                        help="part A at another outcome intercept (e.g. -3.5, event rate about 7%%); use with its own --root-seed and --output")
+    parser.add_argument("--alert-rate", type=float, default=0.2, help="alert rate that sets the threshold when --b0 is given")
     parser.add_argument("--output", default="merged_expE7.json")
+    parser.add_argument("--merge", action="store_true",
+                        help="keep the parts not rerun from the existing figures/<output>")
     args = parser.parse_args()
+    if args.b0 is not None and args.parts != "A":
+        parser.error("--b0 applies to part A only; pass --parts A")
     out = {"design": __doc__.split("\n\n")[1].replace("\n", " "),
-           "parameters": {k: v for k, v in vars(args).items() if k not in ("output",)} | {
+           "parameters": {k: v for k, v in vars(args).items() if k not in ("output", "merge")} | {
                "experiment_block": EXPERIMENT, "harm_grid": list(HARM_GRID), "eps_grid": list(EPS_GRID),
                "n_scaling": list(N_SCALING)}}
+    existing = ROOT / "figures" / args.output
+    if args.merge and existing.exists():
+        old = json.loads(existing.read_text())
+        rerun = set(args.parts.split(","))
+        out.update({k: v for k, v in old.items() if k in ("A", "B", "D", "E", "F") and k not in rerun})
+        out["parameters"]["parts"] = ",".join(sorted(set(old["parameters"]["parts"].split(",")) | rerun))
     start = time.time()
     parts = {"A": run_a, "B": run_b, "D": run_d, "E": run_e, "F": run_f}
     for part in args.parts.split(","):

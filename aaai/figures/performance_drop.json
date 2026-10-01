@@ -1,0 +1,189 @@
+{
+ "design": "    python3 sim2/check_performance_drop.py",
+ "synthetic": [
+  {
+   "setting": "calibrated operating point",
+   "b0": -0.6,
+   "tau_r": 0.45,
+   "before": {
+    "brier": 0.20012488970404527,
+    "auroc": 0.7450751220552374,
+    "observed_over_expected": 0.8853970634689519,
+    "calibration_slope": 0.6428890368826993,
+    "event_rate": 0.3496734342730112
+   },
+   "after": {
+    "brier": 0.22689756955081491,
+    "auroc": 0.6447349463000103,
+    "observed_over_expected": 0.5951246583266676,
+    "calibration_slope": 0.39701131028384845,
+    "event_rate": 0.2350349822511419
+   },
+   "change": {
+    "brier": 0.026772679846769648,
+    "auroc": -0.10034017575522713,
+    "observed_over_expected": -0.29027240514228425,
+    "calibration_slope": -0.24587772659885082,
+    "event_rate": -0.11463845202186929
+   }
+  },
+  {
+   "setting": "b0 = -0.6, alert rate 20%",
+   "b0": -0.6,
+   "tau_r": 0.6598064581411145,
+   "before": {
+    "brier": 0.20012488970404527,
+    "auroc": 0.7450751220552374,
+    "observed_over_expected": 0.8853970634689519,
+    "calibration_slope": 0.6428890368826993,
+    "event_rate": 0.3496734342730112
+   },
+   "after": {
+    "brier": 0.21865758454122122,
+    "auroc": 0.693886957062016,
+    "observed_over_expected": 0.7837343498172222,
+    "calibration_slope": 0.48991204822510315,
+    "event_rate": 0.30952336862807284
+   },
+   "change": {
+    "brier": 0.018532694837175956,
+    "auroc": -0.05118816499322143,
+    "observed_over_expected": -0.10166271365172963,
+    "calibration_slope": -0.15297698865759612,
+    "event_rate": -0.04015006564493834
+   }
+  },
+  {
+   "setting": "b0 = -1.5, alert rate 20%",
+   "b0": -1.5,
+   "tau_r": 0.44088572876849735,
+   "before": {
+    "brier": 0.15851229098455616,
+    "auroc": 0.7440584629620479,
+    "observed_over_expected": 0.8173669535307434,
+    "calibration_slope": 0.6155033076838421,
+    "event_rate": 0.20764417694678367
+   },
+   "after": {
+    "brier": 0.16072101078658757,
+    "auroc": 0.6969343947285459,
+    "observed_over_expected": 0.6889256996166874,
+    "calibration_slope": 0.48813867088039925,
+    "event_rate": 0.17501491742045772
+   },
+   "change": {
+    "brier": 0.0022087198020314114,
+    "auroc": -0.047124068233502014,
+    "observed_over_expected": -0.12844125391405603,
+    "calibration_slope": -0.12736463680344284,
+    "event_rate": -0.03262925952632595
+   }
+  },
+  {
+   "setting": "b0 = -2.5, alert rate 20%",
+   "b0": -2.5,
+   "tau_r": 0.22485956813138583,
+   "before": {
+    "brier": 0.09461967394203312,
+    "auroc": 0.7481013097557666,
+    "observed_over_expected": 0.7350123043699747,
+    "calibration_slope": 0.6074889667663834,
+    "event_rate": 0.10102287294618048
+   },
+   "after": {
+    "brier": 0.08712382007252678,
+    "auroc": 0.7069766893952644,
+    "observed_over_expected": 0.594473043482121,
+    "calibration_slope": 0.5122279603517197,
+    "event_rate": 0.08170662502459844
+   },
+   "change": {
+    "brier": -0.007495853869506339,
+    "auroc": -0.04112462036050224,
+    "observed_over_expected": -0.14053926088785362,
+    "calibration_slope": -0.09526100641466373,
+    "event_rate": -0.01931624792158204
+   }
+  },
+  {
+   "setting": "b0 = -3.5, alert rate 20%",
+   "b0": -3.5,
+   "tau_r": 0.09642721857514801,
+   "before": {
+    "brier": 0.04499379530534056,
+    "auroc": 0.7547277404089061,
+    "observed_over_expected": 0.6637991475833572,
+    "calibration_slope": 0.6174461717981596,
+    "event_rate": 0.04379699250530232
+   },
+   "after": {
+    "brier": 0.03855498937120283,
+    "auroc": 0.7196420433487778,
+    "observed_over_expected": 0.5267293295135154,
+    "calibration_slope": 0.5523238655558732,
+    "event_rate": 0.03475322404527405
+   },
+   "change": {
+    "brier": -0.006438805934137731,
+    "auroc": -0.03508569706012832,
+    "observed_over_expected": -0.13706981806984186,
+    "calibration_slope": -0.06512230624228643,
+    "event_rate": -0.009043768460028273
+   }
+  }
+ ],
+ "open_stand_in": [
+  {
+   "deployment_site": "A",
+   "patients": 12126,
+   "tau": 0.06969071662113475,
+   "before": {
+    "brier": 0.03446745438174137,
+    "auroc": 0.7126954224059893,
+    "observed_over_expected": 1.046607137505991,
+    "calibration_slope": 0.9198272315265993,
+    "event_rate": 0.036945406564407056
+   },
+   "after": {
+    "brier": 0.03117477857984952,
+    "auroc": 0.6737475327213008,
+    "observed_over_expected": 0.9155476276531203,
+    "calibration_slope": 0.7013541158478023,
+    "event_rate": 0.032318984001319474
+   },
+   "change": {
+    "brier": -0.00329267580189185,
+    "auroc": -0.03894788968468843,
+    "observed_over_expected": -0.13105950985287085,
+    "calibration_slope": -0.21847311567879701,
+    "event_rate": -0.004626422563087582
+   }
+  },
+  {
+   "deployment_site": "B",
+   "patients": 11894,
+   "tau": 0.037098446666459145,
+   "before": {
+    "brier": 0.01669832947953658,
+    "auroc": 0.6545879888238731,
+    "observed_over_expected": 0.8421713165932057,
+    "calibration_slope": 0.7960947822923755,
+    "event_rate": 0.01706742895577602
+   },
+   "after": {
+    "brier": 0.015103672361382438,
+    "auroc": 0.6156650145309607,
+    "observed_over_expected": 0.7504866560182805,
+    "calibration_slope": 0.5581447755249465,
+    "event_rate": 0.01520934925172356
+   },
+   "change": {
+    "brier": -0.0015946571181541403,
+    "auroc": -0.03892297429291247,
+    "observed_over_expected": -0.09168466057492519,
+    "calibration_slope": -0.23795000676742906,
+    "event_rate": -0.0018580797040524608
+   }
+  }
+ ]
+}

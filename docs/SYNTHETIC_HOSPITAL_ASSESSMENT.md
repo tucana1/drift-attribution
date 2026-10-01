@@ -67,23 +67,31 @@ can be done locally once PhysioNet access is set up (`docs/NEXT_STEPS.md`).
 
 ## Alternatives considered
 
-- **Knowledge-grounded trajectory generation with LLM auditing** (arXiv
-  2603.06720, March 2026): trained on MIMIC-IV, about 32,000 event types;
-  downstream models trained on audited synthetic data match real-data
-  performance. It is derived from MIMIC-IV, so for E6 the real data is the
-  stronger choice. Its licence and weights were not checked, because arxiv.org
-  is blocked from this environment.
-- **GHOSTS** (synthetic hospital time series, trained on MIMIC-IV and eICU;
-  model, synthetic corpus and code reported as public): the closest to our
-  data needs, but it models ICU time series, not ward stays. It is a possible
-  open fallback if credentialed access is delayed, after checking the
-  corpus licence.
+- **Knowledge-grounded trajectory generation with LLM auditing** (Zhou et
+  al., "From Statistical Fidelity to Clinical Consistency: Scalable Generation
+  and Auditing of Synthetic Patient Trajectories", arXiv 2603.06720, March
+  2026): trained on MIMIC-IV, about 32,000 event types; downstream models
+  trained on audited synthetic data match real-data performance. Checked 30
+  September 2026: the paper is CC BY-NC-SA 4.0; the code (Coogee) is CC BY-NC
+  4.0 and releases neither weights nor synthetic data, so using it means
+  training on MIMIC-IV v2.2 under the credentialed licence. It offers no route
+  around E6's data requirement.
+- **GHOSTS** (synthetic hospital time series, trained on MIMIC-IV and eICU).
+  Checked 30 September 2026: the code is public (GHOSTS under BSD 3-Clause
+  Clear; GHOSTS-Bench and GHOSTS-Experiments without a licence file), but the
+  README states only an intent to release the model and the synthetic corpus,
+  and no corpus is published in those repositories; data preparation runs on
+  credentialed MIMIC-IV and eICU. It models ICU time series, not ward stays.
+  Not usable as an open fallback at present.
 
 ## Sources
 
 - Synthetic Hospital preprint: <https://arxiv.org/abs/2609.30027>
 - Code and data: <https://github.com/sparkcpark/synthetic_hospital>
 - Announcement: <https://x.com/Tim_Dettmers/status/2103499499742048292>
-- Trajectory generation with auditing: <https://arxiv.org/abs/2603.06720>
+- Trajectory generation with auditing: <https://arxiv.org/abs/2603.06720>,
+  code <https://github.com/jameszhou-gl/Coogee>
 - GHOSTS: <https://pubmed.ncbi.nlm.nih.gov/42155369/>,
-  <https://www.medrxiv.org/content/10.1101/2024.10.29.24316332v1.full>
+  <https://www.medrxiv.org/content/10.1101/2024.10.29.24316332v1.full>,
+  code <https://github.com/braindatalab/GHOSTS>,
+  <https://github.com/braindatalab/GHOSTS-Experiments>

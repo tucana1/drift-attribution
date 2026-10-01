@@ -21,6 +21,19 @@ def make_cfg(**kw):
     return cfg
 
 
+def make_cfg_at(b0=None, alert_rate=0.2, **kw):
+    """make_cfg with outcome intercept b0 and the alert threshold at `alert_rate` on pre-deployment covariates.
+
+    The score's linear index is N(0, |w_r|^2) under e0, so the threshold is exact. b0=None is make_cfg(**kw).
+    """
+    if b0 is None:
+        return make_cfg(**kw)
+    from scipy.stats import norm
+    cfg = make_cfg(b0=b0, **kw)
+    cfg.tau_r = float(sigmoid(norm.ppf(1 - alert_rate) * np.linalg.norm(cfg.w_r) + b0))
+    return cfg
+
+
 # ------------------------------------------------------------------ sampler with potential outcomes
 def sample_po(cfg, mechs, n, rng, control_frac=0.0):
     mu = mu_of(cfg, None, mechs); x = rng.normal(size=(n, cfg.d)) + mu
