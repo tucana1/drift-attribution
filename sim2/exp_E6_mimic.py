@@ -3,9 +3,12 @@
     python3 sim2/exp_E6_mimic.py --cohort data/e6_cohort.npz
 
 Run locally, next to credentialed data (see sim2/e6_mimic_cohort.py). The
-script writes figures/merged_expE6.json and figures/fig7_mimic.pdf only when
-the cohort comes from MIMIC-IV; cohorts built from the synthetic fixture
-(sim2/e6_fixture.py) are refused unless --output points elsewhere.
+script writes figures/merged_expE6.json and figures/fig7_mimic.pdf (with
+copies in aaai/figures/) only when the cohort comes from MIMIC-IV and has at
+least --min-admissions admissions; --tag writes merged_expE6_<tag>.json and
+fig7_mimic_<tag>.pdf instead, for sensitivity runs. Cohorts built from the
+synthetic fixture (sim2/e6_fixture.py) or the demo are refused unless
+--output and --figure point elsewhere.
 
 What is real and what is simulated.
   Real:       covariates, the outcome under historical care (ICU admission or
@@ -24,8 +27,9 @@ B ~ Bernoulli(rrr). Before deployment no patient receives the alert-triggered
 action, so the union-graph estimator faces the eps = 0 positivity failure.
 
 Experiment A analogue (attribution). Pre and post samples:
-  deploy_only        both from the early period (patient-disjoint halves), post
-                     under the alert policy (S3 analogue);
+  deploy_only        both drawn from the same early-period pool, post under
+                     the alert policy (S3 analogue: the exogenous change is
+                     exactly zero, so the policy term is the whole change);
   drift_only         pre early, post late, no deployment (real drift);
   drift_and_deploy   pre early, post late under the alert policy (S4 analogue).
 Estimators follow merged.py: the monitor's two-player game with a classifier
@@ -36,19 +40,35 @@ R_post(alert) - R_post(standard care) and the exogenous change
 R_post(standard care) - R_pre(standard care), both over the finite pools and
 in expectation over the simulated components. The X / outcome split of the
 exogenous change has no ground truth in real data and is reported, not scored.
-Replicates resample patients from the pools and redraw the simulation.
+Replicates resample patients (with all their admissions) from the pools and
+redraw the simulation.
 
 Experiment C analogue (retraining). The late period is split by patient into
 a training pool and an evaluation pool. Eight rounds; fixed threshold or
 rate-held; rules keep, naive refit, refit on A = 0, and refit on A = 0 weighted
 by 1 / P(A = 0 | X). Events averted are expected values on the evaluation
 pool against its historical (standard-care) outcomes.
+
+Periods. --period-by anchor_group (default) uses the patient's
+anchor_year_group. --period-by admission_year places each admission by its
+approximate year, anchor_year_group shifted by year(admittime) - anchor_year,
+and drops admissions whose three-year window straddles the early/late
+boundary.
 """
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import argparse
+import json
+import re
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -56,7 +76,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import ROOT, expected_auroc, rng_for, summarize, write_json
+from common import FIGURE_DIRS, ROOT, expected_auroc, rng_for, save_figure, summarize, write_json
 
 EXPERIMENT = 6
 EARLY = ("2008 - 2010", "2011 - 2013")
@@ -64,6 +84,7 @@ LATE = ("2014 - 2016", "2017 - 2019")
 LOG_FEATURES = ("hours_since_admission", "creatinine", "urea_nitrogen", "glucose", "wbc", "platelets")
 SCENARIOS = (("deploy_only", False, True), ("drift_only", True, False), ("drift_and_deploy", True, True))
 ARMS_C = ("keep", "naive", "untreated", "untreated_ipw")
+STATE = {}
 
 
 # ----------------------------------------------------------------------------- data
@@ -80,8 +101,29 @@ def subject_split(subject_id, fraction, salt):
     return (u < fraction)[inverse]
 
 
+def year_range(groups):
+    """Years covered by contiguous anchor_year_group labels such as '2008 - 2010'."""
+    spans = sorted(tuple(int(v) for v in re.findall(r"\d{4}", g)) for g in groups)
+    if any(len(s) != 2 for s in spans) or any(b[0] != a[1] + 1 for a, b in zip(spans, spans[1:])):
+        raise ValueError(f"period groups must be contiguous 'YYYY - YYYY' labels: {groups}")
+    return spans[0][0], spans[-1][1]
+
+
+def period_masks(period, years_from_anchor, early, late, mode):
+    if mode == "anchor_group":
+        return np.isin(period, early), np.isin(period, late)
+    if years_from_anchor is None:
+        raise SystemExit("--period-by admission_year needs a cohort built by the current e6_mimic_cohort.py")
+    spans = np.array([[int(v) for v in re.findall(r"\d{4}", p)][:2] if len(re.findall(r"\d{4}", p)) >= 2 else [0, 0]
+                      for p in period.tolist()], float)
+    lo, hi = spans[:, 0] + years_from_anchor, spans[:, 1] + years_from_anchor
+    (e0, e1), (l0, l1) = year_range(early), year_range(late)
+    valid = spans[:, 0] > 0
+    return valid & (lo >= e0) & (hi <= e1), valid & (lo >= l0) & (hi <= l1)
+
+
 class Cohort:
-    def __init__(self, path, early, late, train_fraction):
+    def __init__(self, path, early, late, train_fraction, period_by="anchor_group"):
         z = np.load(path, allow_pickle=False)
         self.synthetic = bool(z["synthetic_fixture"]) if "synthetic_fixture" in z.files else False
         names = [str(n) for n in z["feature_names"]]
@@ -91,10 +133,10 @@ class Cohort:
                 j = names.index(name)
                 x[:, j] = np.log1p(np.clip(x[:, j], 0, None))
         period = z["period"].astype(str)
+        years = np.array(z["years_from_anchor"], float) if "years_from_anchor" in z.files else None
         self.y = z["y"].astype(float)
         self.subject = z["subject_id"]
-        self.early = np.isin(period, early)
-        self.late = np.isin(period, late)
+        self.early, self.late = period_masks(period, years, early, late, period_by)
         self.model_train = self.early & subject_split(self.subject, train_fraction, 11)
         ref = x[self.model_train]
         med = np.nanmedian(ref, axis=0)
@@ -106,6 +148,29 @@ class Cohort:
         self.x = np.column_stack([x, miss[:, keep_ind].astype(float)])
         self.feature_names = names + [f"missing_{n}" for n, k in zip(names, keep_ind) if k]
         self.n_periods = {p: int((period == p).sum()) for p in np.unique(period)}
+        self.rate_by_period = {p: float(self.y[period == p].mean()) for p in np.unique(period)}
+        self.outcome_share = ({"icu_admission": float(z["y_icu"].mean()), "death": float(z["y_death"].mean())}
+                              if "y_icu" in z.files else None)
+        self.extraction = json.loads(str(z["meta_json"])) if "meta_json" in z.files else None
+
+
+class Pool:
+    """Admissions of one pool grouped by patient, for patient-level resampling."""
+
+    def __init__(self, idx, subject):
+        idx = np.asarray(idx)
+        self.idx = idx[np.argsort(subject[idx], kind="stable")]
+        _, self.start, self.count = np.unique(subject[self.idx], return_index=True, return_counts=True)
+
+    def __len__(self):
+        return len(self.idx)
+
+    def draw(self, rng):
+        """All admissions of len(patients) patients drawn with replacement."""
+        k = rng.integers(0, len(self.start), len(self.start))
+        start, count = self.start[k], self.count[k]
+        offset = np.repeat(start - (np.cumsum(count) - count), count) + np.arange(count.sum())
+        return self.idx[offset]
 
 
 def fit_logistic(x, y, weight=None, c=1.0):
@@ -127,22 +192,22 @@ def wmean(v, w):
     return float(np.sum(v * w) / np.sum(w))
 
 
-def monitor(x0, l0, x1, l1):
+def monitor(x0, l0, x1, l1, rx=None):
     """Two players {P(X), P(Y|X)}, classifier ratio, post outcomes used directly (merged.naive2_est)."""
     r0, r1 = l0.mean(), l1.mean()
-    rx = ratio_classifier(x0, x1)
+    rx = rx or ratio_classifier(x0, x1)
     vx = wmean(l0, rx(x0)) - r0
     vy = wmean(l1, 1 / rx(x1)) - r0
     va = r1 - r0
     return {"X": 0.5 * (vx + va - vy), "Ygx": 0.5 * (vy + va - vx), "dR": va}
 
 
-def proposed(x0, l0, x1, l1, arm):
+def proposed(x0, l0, x1, l1, arm, rx=None):
     """Exogenous Shapley with the policy at standard care, plus the randomised-arm policy term (merged.E3)."""
     m = arm == 1
     c = arm == 0 if np.any(arm == 0) else np.ones(len(arm), bool)
     r0, r1 = l0.mean(), l1[m].mean()
-    rx = ratio_classifier(x0, x1[m])
+    rx = rx or ratio_classifier(x0, x1[m])
     wx0, wx1 = rx(x0), 1 / rx(x1)
     r_e1_pi0, r_mixed = l1[c].mean(), wmean(l1[c], wx1[c])
     vx, vy, vexo = wmean(l0, wx0) - r0, r_mixed - r0, r_e1_pi0 - r0
@@ -168,44 +233,60 @@ def a_truths(f_pre, y_pre, f_post, y_post, alert_post, deploy, p_prevent):
         l_alert = np.where(prevented, p_prevent * f_post ** 2 + (1 - p_prevent) * (1 - f_post) ** 2, l_std)
     else:
         l_alert = l_std
-    return {"pi": float(l_alert.mean() - l_std.mean()), "exogenous": float(l_std.mean() - l_pre.mean())}
+    return {"pi": float(l_alert.mean() - l_std.mean()), "exogenous": float(l_std.mean() - l_pre.mean()),
+            "alert_rate_post": float(alert_post.mean()) if deploy else 0.0}
+
+
+def a_pools(c):
+    """Pre and post pools per scenario. Pre and post are resampled independently in each replicate."""
+    early_pool = np.flatnonzero(c.early & ~c.model_train)
+    late = np.flatnonzero(c.late)
+    return {"deploy_only": (early_pool, early_pool), "drift_only": (early_pool, late),
+            "drift_and_deploy": (early_pool, late)}
+
+
+def a_replicate(job):
+    s_index, rep = job
+    c, f0, tau, args = STATE["cohort"], STATE["f0"], STATE["tau"], STATE["args"]
+    name, _drift, deploy = SCENARIOS[s_index]
+    pre, post = STATE["a_pools"][name]
+    rng = rng_for(args.root_seed, EXPERIMENT, 1, s_index, rep)
+    i0, i1 = pre.draw(rng), post.draw(rng)
+    x0, y0, x1, y1 = c.x[i0], c.y[i0], c.x[i1], c.y[i1]
+    s0, s1 = f0(x0), f0(x1)
+    alert1 = s1 > tau
+    arm = (rng.random(len(i1)) >= args.control_frac).astype(int) if deploy else np.ones(len(i1), int)
+    acted = (arm == 1) & alert1 & (rng.random(len(i1)) < args.p_act) if deploy else np.zeros(len(i1), bool)
+    prevented = acted & (rng.random(len(i1)) < args.rrr)
+    y_obs = np.where(prevented, 0.0, y1)
+    l0, l1 = (s0 - y0) ** 2, (s1 - y_obs) ** 2
+    d = arm == 1
+    rx = ratio_classifier(x0, x1[d])            # monitor and proposed fit the same ratio on the same data
+    mon = monitor(x0, l0, x1[d], l1[d], rx)
+    pro = proposed(x0, l0, x1, l1, arm, rx)
+    row = {"scenario": name, "rep": rep, "monitor_X": mon["X"], "monitor_Ygx": mon["Ygx"],
+           "proposed_X": pro["X"], "proposed_Y": pro["Y"], "proposed_pi": pro["pi"],
+           "proposed_exogenous": pro["X"] + pro["Y"], "dR_observed": pro["dR"],
+           "auroc_change_observed": float(roc_auc_score(y_obs[d], s1[d]) - roc_auc_score(y0, s0)),
+           "n_pre": int(len(i0)), "n_post": int(len(i1)), "alert_rate_post": float(alert1.mean())}
+    if name == "deploy_only":
+        row["union_pi"] = union_policy_term(l0, (s0 > tau).astype(float), args.p_act)
+    return row
 
 
 def run_a(c, f0, tau, args):
-    rows, truths = [], {}
-    early_pool = np.flatnonzero(c.early & ~c.model_train)
-    half = subject_split(c.subject[early_pool], 0.5, 23)
-    pools = {"deploy_only": (early_pool[half], early_pool[~half]),
-             "drift_only": (early_pool, np.flatnonzero(c.late)),
-             "drift_and_deploy": (early_pool, np.flatnonzero(c.late))}
+    truths = {}
     p_prevent = args.p_act * args.rrr
-    for s_index, (name, _drift, deploy) in enumerate(SCENARIOS):
-        pre, post = pools[name]
-        f_pre, f_post = f0(c.x[pre]), f0(c.x[post])
-        truths[name] = a_truths(f_pre, c.y[pre], f_post, c.y[post], (f_post > tau).astype(float), deploy, p_prevent)
-        truths[name]["n_pre"], truths[name]["n_post"] = int(len(pre)), int(len(post))
-        for rep in range(args.reps_a):
-            rng = rng_for(args.root_seed, EXPERIMENT, 1, s_index, rep)
-            i0 = rng.choice(pre, size=len(pre), replace=True)
-            i1 = rng.choice(post, size=len(post), replace=True)
-            x0, y0, x1, y1 = c.x[i0], c.y[i0], c.x[i1], c.y[i1]
-            s0, s1 = f0(x0), f0(x1)
-            alert1 = s1 > tau
-            arm = (rng.random(len(i1)) >= args.control_frac).astype(int) if deploy else np.ones(len(i1), int)
-            acted = (arm == 1) & alert1 & (rng.random(len(i1)) < args.p_act) if deploy else np.zeros(len(i1), bool)
-            prevented = acted & (rng.random(len(i1)) < args.rrr)
-            y_obs = np.where(prevented, 0.0, y1)
-            l0, l1 = (s0 - y0) ** 2, (s1 - y_obs) ** 2
-            mon = monitor(x0, l0, x1[arm == 1], l1[arm == 1])
-            pro = proposed(x0, l0, x1, l1, arm)
-            row = {"scenario": name, "rep": rep, "monitor_X": mon["X"], "monitor_Ygx": mon["Ygx"],
-                   "proposed_X": pro["X"], "proposed_Y": pro["Y"], "proposed_pi": pro["pi"],
-                   "proposed_exogenous": pro["X"] + pro["Y"], "dR_observed": pro["dR"],
-                   "auroc_change_observed": float(roc_auc_score(y_obs[arm == 1], s1[arm == 1]) - roc_auc_score(y0, s0))}
-            if name == "deploy_only":
-                row["union_pi"] = union_policy_term(l0, (s0 > tau).astype(float), args.p_act)
-            rows.append(row)
-        print(f"  A {name} done", flush=True)
+    for name, _drift, deploy in SCENARIOS:
+        pre, post = STATE["a_pools"][name]
+        f_pre, f_post = f0(c.x[pre.idx]), f0(c.x[post.idx])
+        truths[name] = a_truths(f_pre, c.y[pre.idx], f_post, c.y[post.idx], (f_post > tau).astype(float), deploy,
+                                p_prevent)
+        truths[name].update(n_pre=int(len(pre)), n_post=int(len(post)),
+                            patients_pre=int(len(pre.start)), patients_post=int(len(post.start)))
+    jobs = [(s_index, rep) for s_index in range(len(SCENARIOS)) for rep in range(args.reps_a)]
+    rows = pmap(a_replicate, jobs, args.workers)
+    print("  A done", flush=True)
     summary = {}
     for name, *_ in SCENARIOS:
         rr = [r for r in rows if r["scenario"] == name]
@@ -218,44 +299,49 @@ def run_a(c, f0, tau, args):
 
 
 # ----------------------------------------------------------------------------- C analogue
-def run_c(c, f0, tau, args):
-    late = np.flatnonzero(c.late)
-    train_mask = subject_split(c.subject[late], 0.6, 37)
-    train_pool, eval_pool = late[train_mask], late[~train_mask]
+def c_replicate(job):
+    t_index, rep = job
+    c, f0, tau, args = STATE["cohort"], STATE["f0"], STATE["tau"], STATE["args"]
+    rule = ("fixed", "rate")[t_index]
+    train_pool, eval_pool, held_rate = STATE["c_train"], STATE["c_eval"], STATE["held_rate"]
     x_eval, y_eval = c.x[eval_pool], c.y[eval_pool]
-    held_rate = float(np.mean(f0(c.x[train_pool]) > tau))
     rows = []
-    for t_index, rule in enumerate(("fixed", "rate")):
-        for rep in range(args.reps_c):
-            for arm in ARMS_C:
-                score = f0
-                for rnd in range(1, args.rounds + 1):
-                    thr = tau if rule == "fixed" else float(np.quantile(score(c.x[train_pool]), 1 - held_rate))
-                    s = score(x_eval)
-                    alert = (s > thr).astype(float)
-                    q_obs = y_eval * (1 - args.p_act * args.rrr * alert)
-                    rows.append({"threshold_rule": rule, "rep": rep, "arm": arm, "round": rnd,
-                                 "events_averted_pp": float(100 * (y_eval.mean() - q_obs.mean())),
-                                 "alert_rate": float(alert.mean()),
-                                 "observed_auroc": expected_auroc(s, q_obs),
-                                 "calibration_in_large": float(s.mean() - y_eval.mean())})
-                    if arm == "keep" or rnd == args.rounds:
-                        continue
-                    rng = rng_for(args.root_seed, EXPERIMENT, 2, t_index, rep, rnd)
-                    idx = rng.choice(train_pool, size=args.n_train, replace=True)
-                    u_act, u_prev = rng.random(args.n_train), rng.random(args.n_train)
-                    xb, yb = c.x[idx], c.y[idx]
-                    alert_b = score(xb) > thr
-                    p_a = np.where(alert_b, args.p_act, 0.0)
-                    acted = u_act < p_a
-                    y_obs = np.where(acted & (u_prev < args.rrr), 0.0, yb)
-                    if arm == "naive":
-                        score = fit_logistic(xb, y_obs)
-                    elif arm == "untreated":
-                        score = fit_logistic(xb[~acted], y_obs[~acted])
-                    else:
-                        score = fit_logistic(xb[~acted], y_obs[~acted], weight=1 / (1 - p_a[~acted]))
-        print(f"  C {rule} done", flush=True)
+    for arm in ARMS_C:
+        score = f0
+        for rnd in range(1, args.rounds + 1):
+            thr = tau if rule == "fixed" else float(np.quantile(score(c.x[train_pool]), 1 - held_rate))
+            s = score(x_eval)
+            alert = (s > thr).astype(float)
+            q_obs = y_eval * (1 - args.p_act * args.rrr * alert)
+            rows.append({"threshold_rule": rule, "rep": rep, "arm": arm, "round": rnd,
+                         "events_averted_pp": float(100 * (y_eval.mean() - q_obs.mean())),
+                         "alert_rate": float(alert.mean()),
+                         "observed_auroc": expected_auroc(s, q_obs),
+                         "calibration_in_large": float(s.mean() - y_eval.mean())})
+            if arm == "keep" or rnd == args.rounds:
+                continue
+            # common random numbers across arms: the same patients and uniforms in each round
+            rng = rng_for(args.root_seed, EXPERIMENT, 2, t_index, rep, rnd)
+            idx = rng.choice(train_pool, size=args.n_train, replace=True)
+            u_act, u_prev = rng.random(args.n_train), rng.random(args.n_train)
+            xb, yb = c.x[idx], c.y[idx]
+            alert_b = score(xb) > thr
+            p_a = np.where(alert_b, args.p_act, 0.0)
+            acted = u_act < p_a
+            y_obs = np.where(acted & (u_prev < args.rrr), 0.0, yb)
+            if arm == "naive":
+                score = fit_logistic(xb, y_obs)
+            elif arm == "untreated":
+                score = fit_logistic(xb[~acted], y_obs[~acted])
+            else:
+                score = fit_logistic(xb[~acted], y_obs[~acted], weight=1 / (1 - p_a[~acted]))
+    return rows
+
+
+def run_c(c, f0, tau, args):
+    jobs = [(t_index, rep) for t_index in range(2) for rep in range(args.reps_c)]
+    rows = [r for chunk in pmap(c_replicate, jobs, args.workers) for r in chunk]
+    print("  C done", flush=True)
     summary = []
     for rule in ("fixed", "rate"):
         for arm in ARMS_C:
@@ -264,8 +350,23 @@ def run_c(c, f0, tau, args):
                 summary.append({"threshold_rule": rule, "arm": arm, "round": rnd,
                                 **{k: summarize([r[k] for r in cell], seed=rnd)
                                    for k in ("events_averted_pp", "alert_rate", "observed_auroc", "calibration_in_large")}})
-    return {"held_alert_rate": held_rate, "n_train_pool": int(len(train_pool)), "n_eval_pool": int(len(eval_pool)),
+    return {"held_alert_rate": STATE["held_rate"], "n_train_pool": int(len(STATE["c_train"])),
+            "n_eval_pool": int(len(STATE["c_eval"])), "event_rate_eval_pool": float(c.y[STATE["c_eval"]].mean()),
             "summary": summary, "runs": rows}
+
+
+# ----------------------------------------------------------------------------- driver
+def init_worker(state):
+    STATE.update(state)
+    model = STATE.pop("f0_model")
+    STATE["f0"] = lambda xx: model.predict_proba(xx)[:, 1]
+
+
+def pmap(fn, jobs, workers):
+    if workers <= 1:
+        return [fn(j) for j in jobs]
+    with ProcessPoolExecutor(max_workers=workers, initializer=init_worker, initargs=(STATE["shared"],)) as ex:
+        return list(ex.map(fn, jobs, chunksize=max(1, len(jobs) // (8 * workers))))
 
 
 # ----------------------------------------------------------------------------- figure
@@ -318,7 +419,6 @@ def figure(result, paths):
     ax.set_title("C: retrain and redeploy, fixed threshold")
     ax.legend(fontsize=5.8, frameon=False)
     fig.tight_layout()
-    from common import save_figure
     save_figure(fig, Path(paths[0]).name, dirs=tuple(Path(p).parent for p in paths))
     plt.close(fig)
 
@@ -328,6 +428,7 @@ def main():
     parser.add_argument("--cohort", required=True)
     parser.add_argument("--early", nargs="+", default=list(EARLY))
     parser.add_argument("--late", nargs="+", default=list(LATE))
+    parser.add_argument("--period-by", choices=("anchor_group", "admission_year"), default="anchor_group")
     parser.add_argument("--train-fraction", type=float, default=0.4, help="share of early-period patients used to fit the score")
     parser.add_argument("--alert-rate", type=float, default=0.10)
     parser.add_argument("--p-act", type=float, default=0.85)
@@ -338,21 +439,41 @@ def main():
     parser.add_argument("--rounds", type=int, default=8)
     parser.add_argument("--n-train", type=int, default=8000)
     parser.add_argument("--root-seed", type=int, default=2026092906)
-    parser.add_argument("--output", default=None, help="JSON path; default figures/merged_expE6.json")
-    parser.add_argument("--figure", default=None, help="figure path; default figures/fig7_mimic.pdf")
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--tag", default=None, help="sensitivity run: write merged_expE6_<tag>.json and fig7_mimic_<tag>.pdf")
+    parser.add_argument("--output", default=None, help="JSON path outside figures/ (fixture and demo runs)")
+    parser.add_argument("--figure", default=None, help="figure path outside figures/ (fixture and demo runs)")
     parser.add_argument("--min-admissions", type=int, default=5000,
-                        help="smallest cohort allowed to write the default paper outputs (the open demo has about 100 patients)")
+                        help="smallest cohort allowed to write into figures/ (the open demo has about 100 patients)")
     args = parser.parse_args()
+    if (args.output is None) != (args.figure is None):
+        parser.error("pass both --output and --figure, or neither")
+    if args.tag is not None and args.output is not None:
+        parser.error("--tag writes into figures/; it cannot be combined with --output")
+    if args.tag is not None and not re.fullmatch(r"[A-Za-z0-9_.-]+", args.tag):
+        parser.error("--tag may contain letters, digits, '.', '_' and '-' only")
     start = time.time()
-    c = Cohort(args.cohort, args.early, args.late, args.train_fraction)
-    default_outputs = args.output is None or args.figure is None
-    if c.synthetic and default_outputs:
+    c = Cohort(args.cohort, args.early, args.late, args.train_fraction, args.period_by)
+    to_figures = args.output is None
+    if c.synthetic and to_figures:
         parser.error("this cohort was built from the synthetic fixture; pass --output and --figure outside figures/")
-    if len(c.y) < args.min_admissions and default_outputs:
+    if len(c.y) < args.min_admissions and to_figures:
         parser.error(f"the cohort has {len(c.y)} admissions (fewer than --min-admissions={args.min_admissions}), "
                      "as for the MIMIC-IV demo or a test extract; pass --output and --figure outside figures/")
-    f0 = fit_logistic(c.x[c.model_train], c.y[c.model_train])
+    if min(c.early.sum(), c.late.sum(), c.model_train.sum()) < 50:
+        parser.error("too few admissions in the early or late period for this run (check --early, --late, --period-by)")
+    model = LogisticRegression(C=1.0, max_iter=5000).fit(c.x[c.model_train], c.y[c.model_train])
+    f0 = lambda xx: model.predict_proba(xx)[:, 1]
     tau = float(np.quantile(f0(c.x[c.model_train]), 1 - args.alert_rate))
+    late = np.flatnonzero(c.late)
+    train_mask = subject_split(c.subject[late], 0.6, 37)
+    c_train, c_eval = late[train_mask], late[~train_mask]
+    held_rate = float(np.mean(f0(c.x[c_train]) > tau))
+    pools = {k: (Pool(a, c.subject), Pool(b, c.subject)) for k, (a, b) in a_pools(c).items()}
+    shared = {"cohort": c, "f0_model": model, "tau": tau, "args": args, "a_pools": pools,
+              "c_train": c_train, "c_eval": c_eval, "held_rate": held_rate}
+    init_worker(dict(shared))
+    STATE["shared"] = shared
     held_out = c.early & ~c.model_train
     result = {
         "design": __doc__.split("\n\n")[2].replace("\n", " "),
@@ -365,25 +486,32 @@ def main():
                                  "retrain-and-redeploy loop"],
         "real_components": ["covariates", "outcome under historical care (ICU admission or death within 12 h)",
                             "period (anchor_year_group)"],
-        "parameters": {k: v for k, v in vars(args).items() if k not in ("cohort", "output", "figure")} | {"experiment_block": EXPERIMENT},
-        "cohort": {"admissions": int(len(c.y)), "periods": c.n_periods, "features": c.feature_names,
+        "parameters": {k: v for k, v in vars(args).items() if k not in ("cohort", "output", "figure", "workers")}
+                      | {"experiment_block": EXPERIMENT},
+        "cohort": {"admissions": int(len(c.y)), "patients": int(len(np.unique(c.subject))),
+                   "periods": c.n_periods, "event_rate_by_period": c.rate_by_period,
+                   "outcome_share": c.outcome_share, "features": c.feature_names,
+                   "admissions_early": int(c.early.sum()), "admissions_late": int(c.late.sum()),
+                   "admissions_model_train": int(c.model_train.sum()),
                    "event_rate_early": float(c.y[c.early].mean()), "event_rate_late": float(c.y[c.late].mean()),
                    "score_auroc_early_heldout": float(roc_auc_score(c.y[held_out], f0(c.x[held_out]))),
                    "score_auroc_late": float(roc_auc_score(c.y[c.late], f0(c.x[c.late]))),
-                   "threshold": tau},
+                   "alert_rate_early_heldout": float(np.mean(f0(c.x[held_out]) > tau)),
+                   "alert_rate_late": float(np.mean(f0(c.x[c.late]) > tau)),
+                   "threshold": tau, "extraction": c.extraction},
     }
     result["A"] = run_a(c, f0, tau, args)
     result["C"] = run_c(c, f0, tau, args)
-    if args.output is None:
-        write_json("merged_expE6.json", result)
+    if to_figures:
+        suffix = f"_{args.tag}" if args.tag else ""
+        write_json(f"merged_expE6{suffix}.json", result)
+        fig_paths = [Path(d) / f"fig7_mimic{suffix}.pdf" for d in FIGURE_DIRS]
     else:
         write_json(Path(args.output).name, result, dirs=(Path(args.output).parent,))
-    if args.figure is None:
-        fig_paths = [ROOT / "figures/fig7_mimic.pdf", ROOT / "aaai/figures/fig7_mimic.pdf"]
-    else:
         fig_paths = [Path(args.figure)]
     figure(result, fig_paths)
-    print(f"done in {time.time() - start:.0f}s")
+    print(f"wrote {', '.join(str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p) for p in fig_paths)} "
+          f"in {time.time() - start:.0f}s")
 
 
 if __name__ == "__main__":
