@@ -81,7 +81,9 @@ from common import FIGURE_DIRS, ROOT, expected_auroc, rng_for, save_figure, summ
 EXPERIMENT = 6
 EARLY = ("2008 - 2010", "2011 - 2013")
 LATE = ("2014 - 2016", "2017 - 2019")
-LOG_FEATURES = ("hours_since_admission", "creatinine", "urea_nitrogen", "glucose", "wbc", "platelets")
+LOG_FEATURES = ("hours_since_admission", "creatinine", "urea_nitrogen", "glucose", "wbc", "platelets",
+                "hours_in_icu", "hours_before_icu", "lactate")      # the last three: open stand-in cohort
+MIMIC = "MIMIC-IV"
 SCENARIOS = (("deploy_only", False, True), ("drift_only", True, False), ("drift_and_deploy", True, True))
 ARMS_C = ("keep", "naive", "untreated", "untreated_ipw")
 STATE = {}
@@ -152,6 +154,7 @@ class Cohort:
         self.outcome_share = ({"icu_admission": float(z["y_icu"].mean()), "death": float(z["y_death"].mean())}
                               if "y_icu" in z.files else None)
         self.extraction = json.loads(str(z["meta_json"])) if "meta_json" in z.files else None
+        self.source = (self.extraction or {}).get("source", MIMIC)
 
 
 class Pool:
@@ -394,8 +397,10 @@ def figure(result, paths):
         ax.plot([truth["pi"]] * 2, [s_i * 5 - 0.5, s_i * 5 + 3.5], color="#228833", ls="--", lw=0.8)
         ax.plot([truth["exogenous"]] * 2, [s_i * 5 - 0.5, s_i * 5 + 3.5], color="#4477AA", ls=":", lw=0.8)
     ax.axvline(0, color="black", lw=0.5)
+    labels = result.get("scenario_labels") or {}
     ax.set_yticks([1.5, 6.5])
-    ax.set_yticklabels(["deployment only\n(early period)", "real drift and\ndeployment"])
+    ax.set_yticklabels([labels.get("deploy_only", "deployment only\n(early period)"),
+                        labels.get("drift_and_deploy", "real drift and\ndeployment")])
     ax.set_xlabel("attributed change in Brier score")
     ax.set_title("A: attribution (dashed/dotted: targets)")
     handles, labels = ax.get_legend_handles_labels()
@@ -457,6 +462,8 @@ def main():
     to_figures = args.output is None
     if c.synthetic and to_figures:
         parser.error("this cohort was built from the synthetic fixture; pass --output and --figure outside figures/")
+    if c.source != MIMIC and to_figures:
+        parser.error(f"this cohort comes from {c.source}, not MIMIC-IV; pass --output and --figure outside the E6 slot")
     if len(c.y) < args.min_admissions and to_figures:
         parser.error(f"the cohort has {len(c.y)} admissions (fewer than --min-admissions={args.min_admissions}), "
                      "as for the MIMIC-IV demo or a test extract; pass --output and --figure outside figures/")
@@ -484,8 +491,11 @@ def main():
                                  f"effect of the alert-triggered action (prevents an event with probability {args.rrr}, never causes one)",
                                  f"randomised unalerted arm ({args.control_frac:.0%} of post-deployment patients)",
                                  "retrain-and-redeploy loop"],
-        "real_components": ["covariates", "outcome under historical care (ICU admission or death within 12 h)",
-                            "period (anchor_year_group)"],
+        "data_source": c.source,
+        "real_components": (c.extraction or {}).get("real_components",
+                                                   ["covariates", "outcome under historical care (ICU admission or death within 12 h)",
+                                                    "period (anchor_year_group)"]),
+        "scenario_labels": (c.extraction or {}).get("scenario_labels", {}),
         "parameters": {k: v for k, v in vars(args).items() if k not in ("cohort", "output", "figure", "workers")}
                       | {"experiment_block": EXPERIMENT},
         "cohort": {"admissions": int(len(c.y)), "patients": int(len(np.unique(c.subject))),

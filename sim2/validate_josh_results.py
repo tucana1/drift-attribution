@@ -268,6 +268,20 @@ def check_e6():
         quoted(text, f"F7 ({label})")
 
 
+def check_e6_open():
+    """Open-data stand-in for E6 (figures/e6_open/); not used in the manuscript."""
+    files = sorted((ROOT / "figures/e6_open").glob("merged_expE6_*.json"))
+    if not files:
+        print("  no open stand-in runs: skipped")
+        return
+    for path in files:
+        d = json.loads(path.read_text())
+        assert d["data_source"].startswith("PhysioNet/CinC Challenge 2019"), f"{path.name}: unexpected data source"
+        check_e6_run(path.name, d)
+        fig = path.parent / path.name.replace("merged_expE6", "fig_e6").replace(".json", ".pdf")
+        assert fig.exists(), f"{fig.name} missing"
+
+
 def check_tables():
     import make_tables
     import make_tables_e7
@@ -302,6 +316,7 @@ if __name__ == "__main__":
     for name, fn in (("E3 (Experiment H)", check_h), ("E1 decision rules", check_e1), ("E4 robustness", check_ab),
                      ("E5 sites", check_g2), ("E7 intervals", check_e7),
                      ("low prevalence", check_prevalence_estimators), ("E6 MIMIC-IV", check_e6),
+                     ("E6 open stand-in", check_e6_open),
                      ("generated tables", check_tables), ("style", check_style)):
         fn()
         print(f"ok  {name}")

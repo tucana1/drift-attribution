@@ -38,6 +38,8 @@ figures/merged_expE1.json
 figures/merged_expE1_prev.json
 figures/merged_expE7.json
 figures/merged_expE7_prev.json
+figures/e6_open/merged_expE6_sepsis2019.json
+figures/e6_open/fig_e6_sepsis2019.pdf
 figures/merged_expF.json
 figures/merged_expG2.json
 figures/merged_expH.json
@@ -54,6 +56,7 @@ sim2/dgp.py
 sim2/e6_fixture.py
 sim2/e6_mimic_cohort.py
 sim2/e6_report.py
+sim2/e6_sepsis_cohort.py
 sim2/exp_AB_robustness.py
 sim2/exp_E1_decision.py
 sim2/exp_E6_mimic.py

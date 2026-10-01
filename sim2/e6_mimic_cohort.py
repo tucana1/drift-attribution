@@ -189,7 +189,7 @@ def build(root, run, seed=20260929, min_hours_after_admission=4.0):
     for h, itemid, v in zip(last["hadm_id"], last["itemid"], last["v"]):
         labs[row[int(h)], col[int(itemid)]] = float(v)
     demo_cols = ("age", "male", "emergency", "hours_since_admission", "prior_icu")
-    demo = np.column_stack([np.asarray(base[k], float) for k in demo_cols])
+    demo = np.column_stack([np.ma.filled(np.ma.asarray(base[k], dtype=float), np.nan) for k in demo_cols])
     y_icu, y_death = np.asarray(base["y_icu"], int), np.asarray(base["y_death"], int)
     meta = {"seed": seed, "horizon_hours": HORIZON_HOURS, "lookback_hours": LOOKBACK_HOURS,
             "min_hours_after_admission": min_hours_after_admission, "excluded_unit_patterns": list(EXCLUDED_UNITS),

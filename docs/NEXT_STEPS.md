@@ -16,6 +16,12 @@ guidance on online services). Run the data steps yourself. An AI assistant
 must not open anything under `data/` or `~/physionet`, or the cohort error
 log; the scripts print and save aggregates only.
 
+Until access is granted, an open stand-in runs the same experiment on the
+PhysioNet/CinC Challenge 2019 data, with two hospitals in place of the two
+periods (`docs/E6_MIMIC.md`, "Open stand-in"; outputs in `figures/e6_open/`,
+not in the manuscript). Attribution reproduces F1 and F2 there; the retraining
+analogue is underpowered at its 1.8% event rate.
+
 ### 1.1 Smoke test on the open demo (optional, recommended)
 
 ```sh
