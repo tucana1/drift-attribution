@@ -126,7 +126,7 @@ criteria, is `docs/NEXT_STEPS.md`.
 - The low-prevalence sign flip (Table `tab:prevalence`) affects the framing of
   the introduction (W1) and results (W7); it is flagged there, not rewritten.
 - Three references were added from the to-do's verified list (Liley 2021,
-  Haidar-Wehbe 2025, Johnson 2023); their titles should be checked against
-  the DOI pages (L2/L3), because this environment could not reach them.
+  Haidar-Wehbe 2025, Johnson 2023) and checked, along with the entries
+  that had TODO notes in `references.bib` (see `docs/NEXT_STEPS.md`).
 - The Section 5 S2 description said "change in w_y"; the code shifts the
   outcome intercept, and the text now says so.

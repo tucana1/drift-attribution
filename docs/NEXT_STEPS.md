@@ -134,12 +134,14 @@ the `.tex`); `data/` stays untracked.
 
 ## 3. Reference checks (L2/L3)
 
-Confirm against the DOI pages; entered from the to-do's verified list with
-titles from memory, because this environment could not reach them:
-`liley2021model` (AISTATS 2021, PMLR 130:3916-3924),
-`haidarwehbe2025optimal` (Ann. Appl. Stat. 19(2):1190-1213,
-doi 10.1214/24-AOAS1982), `johnson2023mimic` (Sci. Data 10:1,
-doi 10.1038/s41597-022-01899-x).
+Done. `liley2021model` and `johnson2023mimic` were correct. The holdout
+paper's published title is "Holdout sets for safe predictive model updating"
+(key now `haidarwehbe2025holdout`). The open TODOs in `references.bib` are
+closed: Lenert 2019 and Sperrin 2019 volume and pages confirmed, arXiv
+2601.00716 is Guan and Zhou, "Detecting Performance Degradation under Data
+Shift in Pathology Vision-Language Model" (key `guan2026detecting`), the
+Gonzalez et al. author list is complete (key `gonzalez2024regulating`, first
+posted December 2024), and Keogh and van Geloven 2024 has volume and pages.
 
 ## 4. Assessed and not used
 
