@@ -29,16 +29,26 @@ checks fail at this size and are not enforced here. If extraction fails, fix
 `sim2/e6_mimic_cohort.py` (`TYPES`, `EXCLUDED_UNITS`) before the large
 download.
 
+Done 1 October: checksums match, extraction runs without errors (221
+admissions of 94 patients, event rate 2.7%), and every care unit in the demo
+is classified as intended. Neuro Stepdown and Neuro Intermediate are excluded
+from wards because MIMIC-IV records ICU stays in them, which matches the
+outcome definition. Only 49% of demo admissions fall in the patient's anchor
+year and 19% are more than three years from it, so the anchor-group period
+labels are coarse; the `admyear` sensitivity run addresses this.
+
 ### 1.2 Download
 
 ```sh
 sim2/run_e6.sh download <physionet-username>
 ```
 
-Six tables of MIMIC-IV v3.1 (about 3 GB, mostly `labevents`) into
+Six tables of MIMIC-IV v3.1 (about 2.6 GB, mostly `labevents`) into
 `~/physionet/mimiciv/3.1`, password asked once, partial files resumed,
-SHA-256 checked. Needs about 5 GB free. `MIMIC_VERSION=2.2` for v2.2,
-`MIMIC_ROOT=...` for another location.
+SHA-256 checked. Needs about 4 GB free. `MIMIC_VERSION=2.2` for v2.2,
+`MIMIC_ROOT=...` for another location. HTTP 403 after the password means the
+login worked but the account lacks MIMIC-IV access (credentialing, CITI
+training, signed data use agreement on the project page).
 
 ### 1.3 Cohort and checks
 

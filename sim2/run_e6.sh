@@ -23,6 +23,9 @@ SENS_REPS_C=${SENS_REPS_C:-30}
 MEMORY_LIMIT=${MEMORY_LIMIT:-4GB}
 TABLES="hosp/patients hosp/admissions hosp/transfers hosp/labevents hosp/d_labitems icu/icustays"
 PY=.venv/bin/python
+# PhysioNet answers command-line downloads with a Basic-auth challenge only for wget-style clients
+# (other user agents get the browser 403 page), so curl announces itself as wget-compatible.
+UA="Wget/1.21 (compatible; curl; drift-attribution run_e6.sh)"
 export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
 say() { printf '\n== %s\n' "$*"; }
@@ -44,14 +47,22 @@ fetch() {
     mkdir -p "$(dirname "$out")"
     if [ -s "$out" ]; then echo "have $f"; continue; fi
     echo "fetching $f"
-    if ! curl --fail --location --progress-bar ${auth[@]+"${auth[@]}"} --continue-at - -o "$out.part" "$base/$f.csv.gz"; then
+    if ! curl --fail --location --progress-bar -A "$UA" ${auth[@]+"${auth[@]}"} --continue-at - -o "$out.part" "$base/$f.csv.gz"; then
+      local code
+      code=$(curl --silent --location -A "$UA" ${auth[@]+"${auth[@]}"} -r 0-0 -o /dev/null -w '%{http_code}' "$base/$f.csv.gz" || true)
+      if [ "$code" = 401 ] || [ "$code" = 403 ]; then
+        echo "PhysioNet refused $f (HTTP $code). Check the username and password, and that the account has" \
+             "credentialed access to this MIMIC-IV version with its data use agreement signed." >&2
+        rm -f "$out.part"
+        exit 1
+      fi
       echo "could not resume $f; fetching it again from the start"
       rm -f "$out.part"
-      curl --fail --location --progress-bar ${auth[@]+"${auth[@]}"} -o "$out.part" "$base/$f.csv.gz"
+      curl --fail --location --progress-bar -A "$UA" ${auth[@]+"${auth[@]}"} -o "$out.part" "$base/$f.csv.gz"
     fi
     mv "$out.part" "$out"
   done
-  if ! curl --fail --silent --location ${auth[@]+"${auth[@]}"} -o "$dest/SHA256SUMS.txt" "$base/SHA256SUMS.txt"; then
+  if ! curl --fail --silent --location -A "$UA" ${auth[@]+"${auth[@]}"} -o "$dest/SHA256SUMS.txt" "$base/SHA256SUMS.txt"; then
     echo "no SHA256SUMS.txt at $base: checksums not verified"
     return 0
   fi
@@ -81,8 +92,8 @@ download() {
   local parent; parent=$(mkdir -p "$MIMIC_ROOT" && cd "$MIMIC_ROOT/.." && pwd)
   local free_gb; free_gb=$(df -Pk "$parent" | awk 'NR==2 {printf "%d", $4 / 1048576}')
   say "MIMIC-IV $MIMIC_VERSION, six tables into $MIMIC_ROOT (${free_gb} GB free)"
-  if [ "$free_gb" -lt 5 ]; then
-    echo "need about 5 GB free (labevents.csv.gz is the large file, plus DuckDB work space); set MIMIC_ROOT elsewhere" >&2
+  if [ "$free_gb" -lt 4 ]; then
+    echo "need about 4 GB free (about 2.6 GB of tables, mostly labevents, plus DuckDB work space); set MIMIC_ROOT elsewhere" >&2
     exit 1
   fi
   NETRC_DIR=$(mktemp -d)

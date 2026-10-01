@@ -43,8 +43,14 @@ sim2/run_e6.sh report                    # figures, tables, F7 numbers, validato
 
 `download` asks for the PhysioNet password once (it goes to a temporary netrc
 file, not the command line), resumes partial files and checks SHA-256 sums
-against the release's `SHA256SUMS.txt`. It needs about 5 GB free; set
-`MIMIC_ROOT` to put the tables elsewhere and `MIMIC_VERSION=2.2` for v2.2.
+against the release's `SHA256SUMS.txt`. It needs about 4 GB free (the tables
+are about 2.6 GB, mostly `labevents`); set `MIMIC_ROOT` to put them elsewhere
+and `MIMIC_VERSION=2.2` for v2.2. PhysioNet sends the Basic-auth challenge only
+to wget-style clients (other user agents get the browser's 403 page), so the
+script's curl identifies itself as wget-compatible. HTTP 401 after the
+password means a wrong login; 403 means the login was accepted but the account
+has no access to that MIMIC-IV version yet (credentialing, the CITI training
+and the project's data use agreement are all required).
 `cohort` keeps DuckDB's intermediate tables in an on-disk file next to the
 cohort with a memory limit (`MEMORY_LIMIT`, default 4GB), so labevents does
 not need to fit in RAM; the file is deleted afterwards.
