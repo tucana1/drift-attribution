@@ -376,8 +376,7 @@ shifted population, which is the population in which the keep-or-retrain
 decision is taken. The policy-contrast estimand conditions on it; the
 symmetric share does not. The marginal contributions of the policy player to
 $\emptyset$, $\{X\}$, $\{Y\}$ and $\{X, Y\}$ are $+0.0269$, $+0.0431$, $+0.0273$ and
-$+0.0431$; we report all four rather than choose one, and the interaction
-grows with the size of the exogenous covariate shift.
+$+0.0431$; we report all four rather than choose one.
 
 \paragraph{F1: misattribution is silent (Figure~\ref{fig:attr}).} Under S3 the
 observed Brier score rises by $+0.0268$ [$+0.0264$, $+0.0273$]. Without action logs the
@@ -438,9 +437,10 @@ at round eight) but hides a calibration loss: the refitted score is on average
 $0.159$ below the untreated risk. Under a heterogeneous effect the rate-held
 naive refit keeps $5.42$ [$5.36$, $5.48$] of $8.07$ points, so holding the rate
 is a governance lever, not a fix. The corrections form a hierarchy. Conditioning
-on the action with main effects only fails under heterogeneity almost as badly
-as naive refitting ($5.72$ fixed, $5.47$ rate-held), because one treatment
-coefficient averages the effect over the deployed population; adding
+on the action with main effects only fails under heterogeneity ($5.72$ points
+with the fixed threshold, $5.47$ rate-held, no better than the rate-held naive
+refit), because one treatment coefficient averages the effect over the deployed
+population; adding
 treatment-by-covariate interactions restores $8.08$. Refitting below the alert
 threshold needs no action log and holds while the score class is well
 specified; with a misspecified untreated risk and the fixed threshold it keeps
@@ -451,10 +451,12 @@ depends on which patients the current policy leaves untreated. Weighting the
 untreated patients by the inverse of their logged probability of remaining
 untreated removes that dependence and keeps the benefit in all six settings
 ($9.50$ [$9.40$, $9.59$] misspecified, fixed threshold). Refitting on
-untreated or unalerted patients is the holdout update of
-\citet{liley2021model} and \citet{haidarwehbe2025holdout}; our additions are the
-comparison under heterogeneous effects and misspecification and the weighted
-form, which needs the alert exposure and response probabilities in the log.
+untreated or unalerted patients is an observational version of the holdout
+update of \citet{liley2021model} and \citet{haidarwehbe2025holdout}, whose
+holdout is a random subset of patients withheld from the score; our additions
+are the comparison under heterogeneous effects and misspecification and the
+weighted form, which needs the alert exposure and either the response
+probabilities or a model for them (Appendix~\ref{app:retrain}).
 Every action-log correction assumes the logged covariates capture the
 clinician's treatment decision.
 
@@ -479,7 +481,8 @@ loss: refitting only when the outcome-mechanism term carries more than half of
 the change has zero regret in all four scenarios. Driven by the monitor
 without action logs, the same rule refits in S3 and loses the whole benefit,
 because the monitor books the policy term to the outcome mechanism. Two
-qualifications. With the alert rate held, no two rules differ by more than
+qualifications. With the alert rate held, no two of the rules in
+Table~\ref{tab:decision} differ by more than
 $1.3$ points in S1 to S4, whose shifts leave the ranking of patients unchanged
 (Appendix~\ref{app:decision}). And keeping or refitting naively are not the
 only options: refitting on untreated patients, which needs the action log
@@ -531,8 +534,11 @@ decision-curve net benefit computed on observed outcomes falls from
 $+0.056$ [$+0.054$, $+0.057$] to $-0.142$ [$-0.143$, $-0.141$], crossing zero between adherence $0.3$ and
 $0.5$; the counterfactual net benefit, computed against the untreated
 potential outcome that the alert is meant to catch, stays between $+0.162$ and
-$+0.164$ throughout. In practice the counterfactual quantity is identified by the
-same randomised arm that identifies the policy term. The pre-deployment AUROC
+$+0.164$ throughout. No arm observes the untreated outcome: the randomised
+unalerted arm receives standard care, which treats suspicious patients, so it
+identifies net benefit against outcomes under standard care, $+0.080$ at
+$\theta = 2.5$ and any adherence, positive where standard decision-curve
+analysis is negative. The pre-deployment AUROC
 ($0.745$) is itself below the AUROC against untreated potential outcomes
 ($0.814$), because standard care already treats suspicious patients: the
 baseline is not a clean measurement either. Counting harm does not reverse the
@@ -541,8 +547,11 @@ costs $h$ events, the policy's net benefit at adherence $0.85$ falls from
 $11.50$ to $10.56$ points at $h = 0.1$ and $9.63$ at $h = 0.2$
 (Table~\ref{tab:harm}). Appendix~\ref{app:rd} reports the threshold-discontinuity
 experiment: on the intention-to-treat scale the local jump at $\tau_r$ is
-$-0.332$ [$-0.338$, $-0.326$] against a global policy effect of $-0.405$ [$-0.406$, $-0.404$] among
-the alerted, an underestimate of $18\%$, with a hump-shaped effect curve.
+$-0.332$ [$-0.338$, $-0.326$], against an average policy effect of $-0.291$
+among the alerted, which it overstates by $14\%$. The effect curve is
+hump-shaped and falls to zero at high scores, where standard care already
+treats nearly every flagged patient; the effect of treatment against no
+treatment among the alerted ($-0.405$) is not the policy contrast.
 
 \paragraph{F7: semi-synthetic MIMIC-IV (E6; Figure~\ref{fig:mimic}).} To check
 that the misattribution does not depend on the synthetic covariate and
@@ -714,6 +723,21 @@ realistic ward-deterioration prevalence a successful alert shows up as an
 apparent improvement of the outcome mechanism, not as a drop.
 
 \input{tables/prevalence}
+Table~\ref{tab:prevalence-est} repeats Experiment A and E1 with estimators at an
+untreated event rate of $6.6\%$ (alert rate $20\%$). Under S3 the monitor
+books $-0.0065$ [$-0.0068$, $-0.0062$] to $P(Y \mid X)$, and its interval
+covers the policy-contrast outcome term, zero, in $2\%$ of replicates; the
+randomised arm recovers the policy term with $96\%$ coverage. Under S4 the
+policy term ($-0.0178$) offsets most of the outcome-mechanism shift
+($+0.0242$): the monitor books $+0.0098$ [$+0.0094$, $+0.0103$] to
+$P(Y \mid X)$, so a successful alert hides a real deterioration. In E1 the
+monitor-driven outcome rule refits in every S3 replicate and keeps $0.02$ of
+the $0.91$ points that keeping the score retains; the outcome-share rule
+loses $0.55$ points in S4, where the oracle outcome share ($0.52$) sits at the
+cut-off; refitting on untreated patients matches the better of keeping and
+naive refitting in S1 and S3 and beats both in S2 and S4.
+
+\input{tables/prevalence_estimators}
 
 \section{Persistent-site stepped wedge (E5)}
 \label{app:sites}
@@ -765,7 +789,9 @@ untreated logit; there the original score is the population-best logistic
 approximation to the untreated risk, so a correct and stable update
 reproduces it. The weighted refit uses $1/P(A = 0 \mid X)$ from the alert rule
 and the response probabilities ($0.8$ for suspicious patients, $0.85$ for
-alerted others, $\varepsilon$ otherwise).
+alerted others, $\varepsilon$ otherwise). Estimating $P(A = 1 \mid X)$ instead,
+by a logistic regression of $A$ on $X$, the alert and their interaction, changes
+round-eight events averted by at most $0.01$ points in any setting.
 
 \input{tables/e3_retraining}
 Paired round-eight differences (95\% bootstrap intervals over seeds): naive
@@ -835,6 +861,9 @@ of the exogenous change into covariate and outcome parts has no ground truth
 in real data and is reported, not scored.
 \todo{Numbers and Figure~\ref{fig:mimic} from \texttt{merged\_expE6.json},
 produced by a local run on credentialed data (\texttt{docs/E6\_MIMIC.md}).}
+
+\IfFileExists{tables/e6_mimic.tex}{\input{tables/e6_mimic}}{}
+\IfFileExists{tables/e6_sensitivity.tex}{\input{tables/e6_sensitivity}}{}
 
 \section{Proofs}
 \todo{Proposition~\ref{prop:absence}: exhibit $x, a$ with support mismatch;

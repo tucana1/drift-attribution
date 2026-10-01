@@ -104,14 +104,16 @@ def table_e3():
     arms = (("keep", "Keep original score"), ("naive", "Naive refit"), ("unalerted", "Refit below threshold"),
             ("conditional_main", "Condition on $A$, main effects"), ("untreated", "Refit on $A{=}0$"),
             ("conditional_interactions", "Condition on $A$ with $X{\\times}A$"),
-            ("untreated_ipw", "Refit on $A{=}0$, weighted"))
+            ("untreated_ipw", "Refit on $A{=}0$, weighted"),
+            ("untreated_ipw_est", "\\quad same, estimated weights"))
     settings = ("fixed_k0", "fixed_k2", "fixed_nl", "rate_k0", "rate_k2", "rate_nl")
     last = d["parameters"]["rounds"]
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
              f"\\caption{{Update rules after deployment (E3), events averted against standard care at round {last} "
              f"(percentage points), mean and 95\\% bootstrap interval over {d['parameters']['seeds']} independent seeds "
              "per column. ``Weighted'' uses $1/P(A{=}0\\mid X)$ from the logged alert rule and response "
-             "probabilities. Last row: mean score minus mean untreated risk for naive refitting.}",
+             "probabilities; ``estimated weights'' replaces them with a logistic regression of $A$ on $X$, the alert "
+             "and their interaction. Last row: mean score minus mean untreated risk for naive refitting.}",
              "\\label{tab:retrain-app}",
              "\\begin{tabular}{lcccccc}", "\\toprule",
              " & \\multicolumn{3}{c}{Fixed threshold} & \\multicolumn{3}{c}{Rate-held threshold}\\\\",
@@ -212,6 +214,152 @@ def table_prevalence():
     write("prevalence", lines)
 
 
+def table_prevalence_estimators():
+    """Experiment A (E7 machinery) and E1 at a realistic event rate (merged_expE7_prev.json, merged_expE1_prev.json)."""
+    a, e1 = load("merged_expE7_prev.json"), load("merged_expE1_prev.json")
+    if a is None or e1 is None:
+        return
+    A, op = a["A"], a["A"]["operating_point"]
+    lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
+             f"\\caption{{Experiment A and E1 at an untreated event rate of {100 * op['event_rate_untreated']:.1f}\\% "
+             f"($b_0 = {op['b0']:g}$, alert rate {100 * e1['parameters']['alert_rate']:.0f}\\%), $n = 20{{,}}000$ per "
+             "environment. Top: attribution of the Brier-score change, oracle targets and estimator means with 95\\% "
+             f"bootstrap intervals over {a['parameters']['reps_a']} replicates, and coverage (\\%) of the 95\\% "
+             "patient-level bootstrap interval: the proposed policy term against its target, and the monitor's "
+             "$P(Y\\mid X)$ term against the policy-contrast outcome term. The union-graph estimator targets the "
+             "policy player's Shapley value, "
+             f"{fmt(A['references']['S3']['shapley_pi']['value'], 4, sign=True)} in S3 and "
+             f"{fmt(A['references']['S4']['shapley_pi']['value'], 4, sign=True)} in S4. Bottom: E1, events averted after the "
+             f"keep-or-refit decision (percentage points, fixed threshold, {e1['parameters']['reps']} replicates per "
+             "scenario), with how often a rule refits.}", "\\label{tab:prevalence-est}",
+             "\\resizebox{\\textwidth}{!}{%", "\\begin{tabular}{lcccccc}", "\\toprule",
+             "Scenario & $\\Delta R$ & Policy contrast & Monitor $P(Y\\mid X)$ & Proposed $\\pi$ & Union graph $\\pi$ & "
+             "Coverage: proposed, monitor\\\\", "\\midrule"]
+    for sc in ("S3", "S4"):
+        ref, summ, cov = A["references"][sc], A["summary"][sc], A["bootstrap_coverage"][sc]
+        lines.append(f"{sc} & {fmt(ref['dR']['value'], 4, sign=True)} & {fmt(ref['pc_pi']['value'], 4, sign=True)} & "
+                     f"{brier_ci(summ['naive2_est_Ygx'], 4)} & {brier_ci(summ['E3_rollout_pi'], 4)} & "
+                     f"{brier_ci(summ['union3_raw_pi'], 4)} & "
+                     f"{100 * cov['E3_rollout_pi_vs_policy_contrast']['coverage']:.0f}, "
+                     f"{100 * cov['naive2_Ygx_vs_policy_contrast_Y']['coverage']:.0f}\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "}", "", "\\vspace{0.6em}", "\\begin{tabular}{lcccc}", "\\toprule",
+              "Rule & S1 & S2 & S3 & S4\\\\", "\\midrule"]
+    t = {(x["scenario"], x["rule"]): x for x in e1["table"] if x["threshold_rule"] == "fixed"}
+    for rule, label in (("never", "Never refit"), ("always", "Always refit (naive)"),
+                        ("exo_proposed", "Refit if exogenous share $>1/2$"),
+                        ("outcome_proposed", "Refit if outcome share $>1/2$"),
+                        ("outcome_monitor", "\\quad same, monitor (no action log)"),
+                        ("refit_untreated", "Reference: refit on $A{=}0$")):
+        cells = []
+        for sc in ("S1", "S2", "S3", "S4"):
+            e = t[(sc, rule)]
+            cell = fmt(e["events_averted_pp"]["mean"], 2)
+            if rule in ("exo_proposed", "outcome_proposed", "outcome_monitor"):
+                cell += f" ({100 * e['retrain_fraction']:.0f}\\%)"
+            cells.append(cell)
+        lines.append(f"{label} & " + " & ".join(cells) + "\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
+    write("prevalence_estimators", lines)
+
+
+# ----------------------------------------------------------------------------- E6
+E6_TAGS =(("rrr25", "Action prevents the event w.p.\\ 0.25"), ("rrr75", "Action prevents the event w.p.\\ 0.75"),
+           ("alert05", "Alert rate 5\\%"), ("alert20", "Alert rate 20\\%"),
+           ("admyear", "Periods by admission year"), ("covid", "Late period 2020--2022"))
+
+
+def years(groups):
+    """'2008 - 2010', '2011 - 2013' -> '2008--2013'."""
+    import re
+    ys = [int(y) for g in groups for y in re.findall(r"\d{4}", g)]
+    return f"{min(ys)}--{max(ys)}"
+
+
+def ci_or_value(entry, digits=2):
+    """Mean and interval, or the mean alone when there is no Monte Carlo spread."""
+    lo, hi = entry["ci95"]
+    return fmt(entry["mean"], digits) if hi - lo < 0.5 * 10 ** -digits else ci(entry, digits)
+
+
+def thousands(n):
+    return f"{n:,}".replace(",", "{,}")
+
+
+def brier_ci(entry, digits):
+    lo, hi = entry["ci95"]
+    if entry["mean"] == lo == hi == 0:
+        return "0"                     # identically zero (no deployment)
+    return f"{fmt(entry['mean'], digits, sign=True)} [{fmt(lo, digits, sign=True)}, {fmt(hi, digits, sign=True)}]"
+
+
+def table_e6(d=None):
+    """Appendix table for the main E6 run: cohort in the caption, attribution and update rules in the body."""
+    d = d or load("merged_expE6.json")
+    if d is None:
+        return
+    from e6_report import brier_digits, final_round
+    k = brier_digits(d)
+    c, p, A = d["cohort"], d["parameters"], d["A"]
+    S, T = A["summary"], A["truth"]
+    names = ("deploy_only", "drift_only", "drift_and_deploy")
+    lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
+             f"\\caption{{Semi-synthetic MIMIC-IV (E6). Cohort: {thousands(c['admissions'])} ward admissions of "
+             f"{thousands(c['patients'])} adult patients; event rate {100 * c['event_rate_early']:.1f}\\% in {years(p['early'])} and "
+             f"{100 * c['event_rate_late']:.1f}\\% in {years(p['late'])}; score AUROC "
+             f"{c['score_auroc_early_heldout']:.3f} on held-out early patients and {c['score_auroc_late']:.3f} in the "
+             f"late period; alert rate {100 * c['alert_rate_late']:.1f}\\% in the late period at the fixed threshold. "
+             f"Top: attribution of the Brier-score change, mean over {p['reps_a']} replicates with 95\\% bootstrap "
+             "intervals; targets are exact for the cohort in expectation over the simulated components. Bottom: "
+             f"events averted against historical care at round {p['rounds']} (percentage points), {p['reps_c']} "
+             "replicates.}", "\\label{tab:mimic}", "\\begin{tabular}{lccc}",
+             "\\toprule", " & Deployment only & Drift only & Drift and deployment\\\\", "\\midrule"]
+
+    def row(label, cell):
+        lines.append(label + " & " + " & ".join(cell(n) for n in names) + "\\\\")
+    row("Policy contrast (target)", lambda n: fmt(T[n]["pi"], k, sign=True) if T[n]["pi"] != 0 else "0")
+    row("Proposed, policy term", lambda n: brier_ci(S[n]["proposed_pi"], k))
+    row("Union graph, oracle weights", lambda n: brier_ci(S[n]["union_pi"], k) if "union_pi" in S[n] else "--")
+    row("Monitor, $P(Y\\mid X)$", lambda n: brier_ci(S[n]["monitor_Ygx"], k))
+    row("Exogenous change (target)", lambda n: fmt(T[n]["exogenous"], k, sign=True) if T[n]["exogenous"] != 0 else "0")
+    row("Proposed, exogenous terms", lambda n: brier_ci(S[n]["proposed_exogenous"], k))
+    row("Observed change in Brier score", lambda n: fmt(S[n]["dR_observed"]["mean"], k, sign=True))
+    row("Observed change in AUROC", lambda n: fmt(S[n]["auroc_change_observed"]["mean"], 3, sign=True))
+    lines += ["\\midrule", f"Update rule, round {p['rounds']} & Fixed threshold & Rate-held threshold & \\\\", "\\midrule"]
+    fixed, rate = final_round(d, "fixed"), final_round(d, "rate")
+    for arm, label in (("keep", "Keep"), ("naive", "Naive refit"), ("untreated", "Refit on $A{=}0$"),
+                       ("untreated_ipw", "Refit on $A{=}0$, weighted")):
+        lines.append(f"{label} & {ci_or_value(fixed[arm]['events_averted_pp'])} & "
+                     f"{ci_or_value(rate[arm]['events_averted_pp'])} & \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
+    write("e6_mimic", lines)
+
+
+def table_e6_sensitivity(runs=None):
+    """Tagged E6 runs (merged_expE6_<tag>.json) against the main run, deployment-only scenario and update rules."""
+    main = load("merged_expE6.json") if runs is None else runs.get("main")
+    runs = runs or {tag: load(f"merged_expE6_{tag}.json") for tag, _ in E6_TAGS}
+    rows = [("main", "Main analysis", main)] + [(t, label, runs.get(t)) for t, label in E6_TAGS]
+    rows = [r for r in rows if r[2] is not None]
+    if len(rows) < 2:
+        return
+    from e6_report import brier_digits, final_round
+    k = min(brier_digits(d) for _, _, d in rows)
+    lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
+             "\\caption{E6 sensitivity. Deployment-only attribution (policy contrast, its randomised-arm estimate and "
+             "the monitor's $P(Y\\mid X)$ term, Brier units) and events averted at the last round under the fixed "
+             "threshold (percentage points). Means with 95\\% bootstrap intervals over replicates; the main analysis "
+             "uses an alert rate of 10\\%, an action that prevents the event with probability 0.5 and periods by "
+             "anchor year group.}", "\\label{tab:mimic-sens}", "\\begin{tabular}{lccccc}", "\\toprule",
+             "Setting & Policy contrast & Proposed $\\pi$ & Monitor $P(Y\\mid X)$ & Keep & Naive refit\\\\", "\\midrule"]
+    for _, label, d in rows:
+        S, T, r8 = d["A"]["summary"]["deploy_only"], d["A"]["truth"]["deploy_only"], final_round(d)
+        lines.append(f"{label} & {fmt(T['pi'], k, sign=True)} & {brier_ci(S['proposed_pi'], k)} & "
+                     f"{brier_ci(S['monitor_Ygx'], k)} & {fmt(r8['keep']['events_averted_pp']['mean'], 2)} & "
+                     f"{ci_or_value(r8['naive']['events_averted_pp'])}\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
+    write("e6_sensitivity", lines)
+
+
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -220,6 +368,9 @@ if __name__ == "__main__":
     table_e4()
     table_e5()
     table_prevalence()
+    table_prevalence_estimators()
+    table_e6()
+    table_e6_sensitivity()
     try:
         from make_tables_e7 import tables_e7
         tables_e7()

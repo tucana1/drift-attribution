@@ -43,7 +43,8 @@ def tables_e7():
              f"interval width in Brier units, over {reps} independent replicates per scenario ($n=20{{,}}000$ per "
              "environment). One row scores the monitor against the policy-contrast outcome term, the target a "
              "refit decision needs. ``exact'': the term is identically zero when nothing is deployed.}", "\\label{tab:coverage}",
-             "\\begin{tabular}{lcccc}", "\\toprule", "Estimator and term & S1 & S2 & S3 & S4\\\\", "\\midrule"]
+             "\\resizebox{\\columnwidth}{!}{%", "\\begin{tabular}{lcccc}", "\\toprule",
+             "Estimator and term & S1 & S2 & S3 & S4\\\\", "\\midrule"]
     for label, key, _ in rows:
         cells = []
         for sc in ("S1", "S2", "S3", "S4"):
@@ -53,7 +54,7 @@ def tables_e7():
             else:
                 cells.append(f"{pct(c['coverage'])} ({num(c['median_width'], 3)})")
         lines.append(label + " & " + " & ".join(cells) + "\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
+    lines += ["\\bottomrule", "\\end{tabular}", "}", "\\end{table}"]
     write("e7_coverage", lines)
 
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
@@ -79,11 +80,13 @@ def tables_e7():
 
     D = d["D"]["summary"]
     grid = d["parameters"]["harm_grid"]
+    half = max(max(e["mean"] - e["ci95"][0], e["ci95"][1] - e["mean"])
+               for r in D if r["theta"] == 2.5 for e in (r["net_averted_pp_by_harm"][str(h)] for h in grid))
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{4pt}",
              "\\caption{Harm sensitivity (E7). Net events averted by the alert policy against standard care "
              "(percentage points) when each extra treatment of a patient whose untreated outcome is 0 costs $h$ "
-             f"events; $\\theta = 2.5$, mean over {d['parameters']['reps_d']} independent replicates per cell "
-             "(95\\% intervals within the stated digits unless shown).}",
+             f"events; $\\theta = 2.5$, mean over {d['parameters']['reps_d']} independent replicates per cell; "
+             f"95\\% bootstrap intervals are within $\\pm{half:.2f}$.}}",
              "\\label{tab:harm}", "\\begin{tabular}{l" + "c" * len(grid) + "}", "\\toprule",
              "Adherence & " + " & ".join(f"$h={h:g}$" for h in grid) + "\\\\", "\\midrule"]
     for r in sorted((r for r in D if r["theta"] == 2.5), key=lambda r: r["p_alert"]):

@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import argparse
 import itertools
-import json
 from pathlib import Path
 import sys
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import write_json
 from dgp import p_treat, p_y1, r_hat, sample_env, shapley, is_values, mu_of
 from merged import SCEN, E3, make_cfg, naive2_est, sample_po, truth_E3_decomp
 
@@ -177,13 +177,12 @@ def main():
     parser.add_argument("--n", type=int, default=12000)
     parser.add_argument("--n-truth", type=int, default=120000)
     parser.add_argument("--root-seed", type=int, default=2026092204)
-    parser.add_argument("--output", type=Path, default=ROOT / "figures/merged_expAB_robustness.json")
+    parser.add_argument("--output", default="merged_expAB_robustness.json", help="file name in figures/ and aaai/figures/")
     args = parser.parse_args()
     if min(args.seeds, args.n, args.n_truth) < 2:
         parser.error("Sample sizes and seeds must be at least two")
     result = run(args.seeds, args.n, args.n_truth, args.root_seed)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2) + "\n")
+    write_json(args.output, result)
     print(f"Wrote {args.output}")
 
 

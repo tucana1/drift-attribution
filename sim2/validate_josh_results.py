@@ -46,6 +46,15 @@ def quoted(text, where="manuscript"):
     assert text in TEX, f"{where}: expected to find {text!r}"
 
 
+def signed(v, digits=4):
+    return f"${v:+.{digits}f}$"
+
+
+def with_ci(entry, digits=4, sign=True):
+    f = (lambda v: f"${v:+.{digits}f}$") if sign else (lambda v: f"${v:.{digits}f}$")
+    return f"{f(entry['mean'])} [{f(entry['ci95'][0])}, {f(entry['ci95'][1])}]"
+
+
 def check_h():
     d = load("merged_expH.json")
     p = d["parameters"]
@@ -60,12 +69,10 @@ def check_h():
         vals = [r["events_averted_pp"] for r in runs
                 if (r["setting"], r["arm"], r["round"]) == (e["setting"], e["arm"], e["round"])]
         close(e["events_averted_pp"]["mean"], mean(vals))
+    first_keep = {(r["setting"], r["seed"]): r["events"] for r in runs if r["arm"] == "keep" and r["round"] == 1}
     for r in runs:
         if r["arm"] == "keep":
-            assert r["round"] == 1 or r["events"] == next(
-                x["events"] for x in runs if x["setting"] == r["setting"] and x["seed"] == r["seed"]
-                and x["arm"] == "keep" and x["round"] == 1)
-            break
+            close(r["events"], first_keep[(r["setting"], r["seed"])], 1e-15)
     same_figure("fig3_retrain.pdf")
     g = {(e["setting"], e["arm"], e["round"]): e for e in d["summary"]}
     fmt = lambda v: f"{v:.2f}"
@@ -74,6 +81,10 @@ def check_h():
     quoted(f"${fmt(g[('fixed_nl', 'untreated_ipw', 8)]['events_averted_pp']['mean'])}$ [${fmt(g[('fixed_nl', 'untreated_ipw', 8)]['events_averted_pp']['ci95'][0])}$")
     quoted(f"${abs(g[('rate_k0', 'naive', 8)]['calibration_in_large']['mean']):.3f}$ below the untreated risk")
     quoted(f"${g[('fixed_k0', 'naive', 2)]['observed_auroc']['mean']:.3f}$ in the rounds")
+    gap = max(abs(g[(s["name"], "untreated_ipw_est", p["rounds"])]["events_averted_pp"]["mean"]
+                  - g[(s["name"], "untreated_ipw", p["rounds"])]["events_averted_pp"]["mean"]) for s in p["settings"])
+    assert gap <= 0.01, f"estimated and logged weights differ by {gap:.3f} points"
+    quoted("by at most $0.01$ points in any setting")
 
 
 def check_e1():
@@ -101,6 +112,11 @@ def check_e1():
     quoted(f"${100 * t[('fixed', 'S4', 'exo_proposed')]['retrain_fraction']:.0f}\\%$ of S4 replicates")
     loss_s1 = t[("fixed", "S1", "never")]["events_averted_pp"]["mean"] - t[("fixed", "S1", "exo_proposed")]["events_averted_pp"]["mean"]
     quoted(f"costs ${loss_s1:.1f}$ points")
+    table_rules = ("never", "always", "exo_proposed", "outcome_proposed", "outcome_monitor", "refit_untreated")
+    gap = max(abs(t[("rate", sc, a)]["events_averted_pp"]["mean"] - t[("rate", sc, b)]["events_averted_pp"]["mean"])
+              for sc in ("S1", "S2", "S3", "S4") for a in table_rules for b in table_rules)
+    assert gap <= 1.3, f"rate-held gap {gap:.2f} exceeds the quoted 1.3 points"
+    quoted("no two of the rules in\nTable~\\ref{tab:decision} differ by more than\n$1.3$ points")
 
 
 def check_ab():
@@ -130,8 +146,8 @@ def check_g2():
             bias = mean(r[est + "_est"] - r[entry["target"] + "_truth"] for r in row["runs"])
             close(entry["bias_mean"], bias)
     s = {r["setting"]: r["summary"] for r in d["rows"]}
-    quoted(f"$-{abs(100 * s['correlated_order_common_trend']['retro']['relative_bias']):.1f}\\%$")
-    quoted(f"$+{100 * s['correlated_order_site_trend']['x_endogenous_mean']['relative_bias']:.1f}\\%$ induced")
+    quoted(f"${100 * s['correlated_order_common_trend']['retro']['relative_bias']:+.1f}\\%$")
+    quoted(f"${100 * s['correlated_order_site_trend']['x_endogenous_mean']['relative_bias']:+.1f}\\%$ induced")
 
 
 def check_e7():
@@ -152,18 +168,104 @@ def check_e7():
         close(r["E3_rollout_pi"]["mean"], mean(x["E3_rollout_pi"] for x in rr))
     for fig in ("fig1_attribution.pdf", "fig2_positivity.pdf", "fig4_triage.pdf", "fig5_utility.pdf"):
         same_figure(fig)
+    # Two references, F1 (S3, S4)
+    S3, S4, R3, R4 = A["summary"]["S3"], A["summary"]["S4"], A["references"]["S3"], A["references"]["S4"]
+    for key in ("dR_observed", "naive2_est_Ygx", "naive2_est_X", "union3_raw_pi", "union3_clip_pi", "E3_rollout_pi",
+                "E3_oracle_pi"):
+        quoted(with_ci(S3[key]), f"F1 ({key})")
+    quoted(f"{signed(R3['shapley_pi']['value'])} vs.\\ {signed(R3['pc_pi']['value'])}", "two references (S3)")
+    quoted(f"{signed(R4['shapley_pi']['value'])} vs.\\ {signed(R4['pc_pi']['value'])}", "two references (S4)")
+    quoted(f"$I(X, \\pi) = {R4['I_Xpi']['value']:+.4f}$")
+    quoted(f"$I(\\pi, Y) = {R4['I_piY']['value']:+.4f}$")
+    quoted(f"${S4['E3_rollout_X']['mean']:+.4f} / {S4['E3_rollout_Y']['mean']:+.4f} / {S4['E3_rollout_pi']['mean']:+.4f}$")
+    quoted(f"${R4['pc_X']['value']:+.4f} / {R4['pc_Y']['value']:+.4f} / {R4['pc_pi']['value']:+.4f}$")
+    quoted(f"single-run SD ${S3['naive2_est_Ygx']['sd']:.4f}$")
+    quoted(f"effective sample size ${S3['ess']['mean']:.0f}$")
+    # F2 (eps = 0, n scaling)
+    b0 = next(r for r in d["B"]["summary"] if r["eps"] == 0.0)
+    quoted(with_ci(b0["union3_raw_pi"]), "F2 (eps = 0)")
+    quoted(f"${b0['ess']['mean']:,.0f}$".replace(",", "{,}"), "F2 (ESS)")
+    ns = d["B"]["n_scaling"]["summary"]
+    for r in (ns[0], ns[-1]):
+        lo, hi = r["analyst_ci95_median"]
+        quoted(f"[${lo:.4f}$, ${hi:.4f}$]", "F2 (analyst interval)")
+        assert not lo <= r["truth_shapley_pi"] <= hi
+    quoted(f"${100 * ns[-1]['union3_raw_pi']['bias'] / ns[-1]['truth_shapley_pi']:.0f}\\%$", "F2 (bias)")
+    # F6 (utility, net benefit, harm, threshold discontinuity)
+    D = {(r["theta"], r["p_alert"]): r for r in d["D"]["summary"]}
+    quoted(with_ci(D[(2.5, 0.9)]["auroc_e1"], 3, sign=False), "F6 (AUROC)")
+    quoted(with_ci(D[(2.5, 0.1)]["nb_std"], 3), "F6 (net benefit)")
+    quoted(with_ci(D[(2.5, 0.9)]["nb_std"], 3), "F6 (net benefit)")
+    quoted(f"${D[(2.5, 0.85)]['nb_standard_care']['mean']:+.3f}$ at\n$\\theta = 2.5$", "F6 (net benefit, standard care)")
+    harm = D[(2.5, 0.85)]["net_averted_pp_by_harm"]
+    quoted(f"${harm['0.0']['mean']:.2f}$ to ${harm['0.1']['mean']:.2f}$ points", "F6 (harm)")
+    E = d["E"]
+    quoted(with_ci(E["rd_local"], 3), "F6 (RD jump)")
+    quoted(f"average policy effect of ${E['policy_effect_alerted']['mean']:.3f}$", "F6 (policy effect)")
+    quoted(f"overstates by ${100 * (E['rd_relative_to_policy'] - 1):.0f}\\%$", "F6 (RD gap)")
+    quoted(f"(${E['treatment_effect_alerted']['mean']:.3f}$)", "F6 (treatment effect)")
+
+
+def check_prevalence_estimators():
+    """Low-prevalence Experiment A and E1 (appendix, Table tab:prevalence-est)."""
+    a, e1 = load("merged_expE7_prev.json"), load("merged_expE1_prev.json")
+    A, op = a["A"], a["A"]["operating_point"]
+    assert a["parameters"]["b0"] == e1["parameters"]["b0"] and a["parameters"]["parts"] == "A"
+    quoted(f"untreated event rate of ${100 * op['event_rate_untreated']:.1f}\\%$ (alert rate ${100 * op['alert_rate']:.0f}\\%$)")
+    S3, S4, C3 = A["summary"]["S3"], A["summary"]["S4"], A["bootstrap_coverage"]["S3"]
+    quoted(f"books {with_ci(S3['naive2_est_Ygx'])} to $P(Y \\mid X)$, and its interval")
+    quoted(f"zero, in ${100 * C3['naive2_Ygx_vs_policy_contrast_Y']['coverage']:.0f}\\%$ of replicates")
+    quoted(f"policy term with ${100 * C3['E3_rollout_pi_vs_policy_contrast']['coverage']:.0f}\\%$ coverage")
+    R4 = A["references"]["S4"]
+    quoted(f"policy term (${R4['pc_pi']['value']:+.4f}$) offsets")
+    quoted(f"(${R4['pc_Y']['value']:+.4f}$): the monitor books {with_ci(S4['naive2_est_Ygx'])}")
+    t = {(x["scenario"], x["rule"]): x for x in e1["table"] if x["threshold_rule"] == "fixed"}
+    assert t[("S3", "outcome_monitor")]["retrain_fraction"] == 1.0
+    quoted(f"keeps ${t[('S3', 'outcome_monitor')]['events_averted_pp']['mean']:.2f}$ of\nthe "
+           f"${t[('S3', 'never')]['events_averted_pp']['mean']:.2f}$ points")
+    quoted(f"loses ${t[('S4', 'outcome_proposed')]['regret_vs_best_of_two_pp']['mean']:.2f}$ points in S4")
+    o = e1["truth"]["S4"]["policy_contrast"]
+    quoted(f"outcome share (${o['Y'] / o['dR']:.2f}$)")
+    for sc, better in (("S1", False), ("S2", True), ("S3", False), ("S4", True)):
+        reg = t[(sc, "refit_untreated")]["regret_vs_best_of_two_pp"]
+        assert (reg["ci95"][1] < 0) if better else (reg["ci95"][0] <= 0 <= reg["ci95"][1] or reg["ci95"][1] < 0), sc
+
+
+def check_e6_run(name, d):
+    assert d["semi_synthetic"] is True and d["synthetic_fixture"] is False, f"{name}: E6 output must come from MIMIC-IV"
+    assert d["cohort"]["admissions"] >= 5000, f"{name}: demo-sized cohort, not the full MIMIC-IV"
+    A = d["A"]
+    for sc, summ in A["summary"].items():
+        rr = [r for r in A["runs"] if r["scenario"] == sc]
+        assert len(rr) == d["parameters"]["reps_a"], f"{name}: {sc} replicate count"
+        for key in ("proposed_pi", "monitor_Ygx", "proposed_exogenous"):
+            close(summ[key]["mean"], mean(r[key] for r in rr))
+        for r in rr:
+            close(r["proposed_exogenous"], r["proposed_X"] + r["proposed_Y"], 1e-12)
+            close(r["dR_observed"], r["proposed_exogenous"] + r["proposed_pi"], 1e-12)
+    assert all(r["proposed_pi"] == 0 for r in A["runs"] if r["scenario"] == "drift_only"), "no policy term without deployment"
+    keep = [r["events_averted_pp"] for r in d["C"]["runs"] if r["arm"] == "keep" and r["threshold_rule"] == "fixed"]
+    assert max(keep) - min(keep) < 1e-9, f"{name}: keeping the score must not vary across replicates or rounds"
 
 
 def check_e6():
     path = ROOT / "figures/merged_expE6.json"
+    tagged = sorted(p.name for p in (ROOT / "figures").glob("merged_expE6_*.json"))
     if not path.exists():
+        assert not tagged, "sensitivity runs present without the main E6 run"
         print("  merged_expE6.json not present (needs the credentialed run): skipped")
         return
+    from e6_report import quotes
     d = load("merged_expE6.json")
-    assert d["semi_synthetic"] is True and d["synthetic_fixture"] is False, "E6 output must come from MIMIC-IV"
-    assert d["cohort"]["admissions"] >= 5000, "E6 output comes from a demo-sized cohort, not the full MIMIC-IV"
-    assert "\\todo{Numbers and Figure~\\ref{fig:mimic}" not in TEX, "F7/Appendix E6 TODO still open after the E6 run"
+    check_e6_run("merged_expE6.json", d)
     same_figure("fig7_mimic.pdf")
+    for name in tagged:
+        check_e6_run(name, load(name))
+        same_figure(name.replace("merged_expE6", "fig7_mimic").replace(".json", ".pdf"))
+    assert "\\todo{Results from \\texttt{merged\\_expE6.json}" not in TEX, "F7 TODO still open after the E6 run"
+    assert "\\todo{Numbers and Figure~\\ref{fig:mimic}" not in TEX, "Appendix E6 TODO still open after the E6 run"
+    for label, text in quotes(d).items():
+        quoted(text, f"F7 ({label})")
 
 
 def check_tables():
@@ -181,6 +283,7 @@ def check_tables():
             with redirect_stdout(io.StringIO()):
                 if mod is make_tables:
                     mod.table_e1(); mod.table_e3(); mod.table_e4(); mod.table_e5(); mod.table_prevalence()
+                    mod.table_prevalence_estimators(); mod.table_e6(); mod.table_e6_sensitivity()
                 else:
                     mod.tables_e7()
         finally:
@@ -197,7 +300,8 @@ def check_style():
 
 if __name__ == "__main__":
     for name, fn in (("E3 (Experiment H)", check_h), ("E1 decision rules", check_e1), ("E4 robustness", check_ab),
-                     ("E5 sites", check_g2), ("E7 intervals", check_e7), ("E6 MIMIC-IV", check_e6),
+                     ("E5 sites", check_g2), ("E7 intervals", check_e7),
+                     ("low prevalence", check_prevalence_estimators), ("E6 MIMIC-IV", check_e6),
                      ("generated tables", check_tables), ("style", check_style)):
         fn()
         print(f"ok  {name}")

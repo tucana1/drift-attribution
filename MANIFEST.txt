@@ -35,7 +35,9 @@ figures/merged_expC.json
 figures/merged_expD.json
 figures/merged_expE.json
 figures/merged_expE1.json
+figures/merged_expE1_prev.json
 figures/merged_expE7.json
+figures/merged_expE7_prev.json
 figures/merged_expF.json
 figures/merged_expG2.json
 figures/merged_expH.json
@@ -51,6 +53,7 @@ sim2/common.py
 sim2/dgp.py
 sim2/e6_fixture.py
 sim2/e6_mimic_cohort.py
+sim2/e6_report.py
 sim2/exp_AB_robustness.py
 sim2/exp_E1_decision.py
 sim2/exp_E6_mimic.py
@@ -65,4 +68,5 @@ sim2/make_figures2.py
 sim2/make_tables.py
 sim2/make_tables_e7.py
 sim2/merged.py
+sim2/run_e6.sh
 sim2/validate_josh_results.py

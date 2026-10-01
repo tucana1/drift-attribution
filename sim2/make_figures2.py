@@ -150,7 +150,7 @@ def figure4(E7):
         tg = np.array([r["triage"] for r in rows])
         axes[0].plot(tg, [r["references"]["shapley_X"]["value"] for r in rows], marker="o", ms=3, color=CX,
                      alpha=alpha, label=f"Shapley target, {setting}")
-        for key, color, ls, marker, lab in (("ua_X", CG, "--", "s", "monitor"), ("e3_X", CP, ":", "^", "proposed $X$ term")):
+        for key, color, ls, marker, lab in (("n2_X", CG, "--", "s", "monitor"), ("e3_X", CP, ":", "^", "proposed $X$ term")):
             m = np.array([r[key]["mean"] for r in rows])
             lo = np.array([r[key]["ci95"][0] for r in rows])
             hi = np.array([r[key]["ci95"][1] for r in rows])

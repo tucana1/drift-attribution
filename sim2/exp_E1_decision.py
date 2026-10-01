@@ -13,16 +13,20 @@ Decision rules (paired within a replicate: same e0, e1 and e2 draws).
                     (X, Y), the standard response to a monitored drop.
   exo_proposed      refit only if the proposed decomposition (randomised arm,
                     Experiment A) assigns more than half of the change to the
-                    exogenous terms, X + Y > dR / 2 (the task E1 rule).
+                    exogenous terms, (X + Y) / dR > 1/2 (the task E1 rule).
   outcome_proposed  refit only if the outcome-mechanism term alone carries more
-                    than half of the change, Y > dR / 2.
+                    than half of the change, Y / dR > 1/2.
+                    Shares are taken relative to dR, so the rules keep their
+                    meaning when deployment lowers the Brier score (dR < 0, as
+                    at low prevalence).
   exo_monitor       exogenous rule driven by the two-player monitor without
                     action logs. It has no policy player, so it refits whenever
                     the change is positive; it coincides with `always`.
-  outcome_monitor   outcome rule driven by the monitor, Ygx > dR / 2.
+  outcome_monitor   outcome rule driven by the monitor, Ygx / dR > 1/2.
   exo_oracle, outcome_oracle
                     the two rules driven by the oracle policy-contrast
-                    decomposition (separates estimation error from rule error).
+                    decomposition (expected Brier scores, no outcome noise),
+                    which separates estimation error from rule error.
   refit_untreated   reference: always refit on e1 patients with A = 0 (needs the
                     action log; targets the untreated risk).
   refit_holdout     reference: always refit on the randomised unalerted arm (the
@@ -48,9 +52,10 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import columns, rng_for, summarize, write_json
-from dgp import mu_of, p_treat, p_y1, r_hat, shapley, suspicion, truth_values
-from merged import E3, SCEN, make_cfg, naive2_est, sample_po, truth_E3_decomp
+from common import columns, rng_for, seed_block, summarize, write_json
+from dgp import mu_of, p_treat, p_y1, r_hat, shapley, suspicion
+from exp_AB_robustness import truth_values_expected
+from merged import E3, SCEN, make_cfg_at, naive2_est, sample_po, truth_E3_decomp
 
 EXPERIMENT = 1
 RULES = ("never", "always", "exo_proposed", "outcome_proposed", "exo_monitor", "outcome_monitor",
@@ -68,14 +73,19 @@ def outcome_term(decomp):
     return decomp["Y"] if "Y" in decomp else decomp["Ygx"]
 
 
+def share(term, decomp):
+    """Share of the observed change carried by `term`; zero when nothing changed."""
+    return term / decomp["dR"] if decomp["dR"] != 0 else 0.0
+
+
 def exogenous_rule(decomp):
     """Refit when the exogenous terms carry more than half of the change."""
-    return bool(decomp["X"] + outcome_term(decomp) > 0.5 * decomp["dR"])
+    return bool(share(decomp["X"] + outcome_term(decomp), decomp) > 0.5)
 
 
 def outcome_rule(decomp):
     """Refit when the outcome-mechanism term alone carries more than half of the change."""
-    return bool(outcome_term(decomp) > 0.5 * decomp["dR"])
+    return bool(share(outcome_term(decomp), decomp) > 0.5)
 
 
 def evaluate(cfg, score, x_eval, x_cal, rule, held_rate):
@@ -102,9 +112,8 @@ def run(args):
     start = time.time()
     for t_index, t_rule in enumerate(THRESHOLD_RULES):
         for s_index, (scenario, kw) in enumerate(SCEN.items()):
-            cfg = make_cfg(**kw)
-            tv = truth_values(cfg, ["X", "pi", "Y"], n=args.n_truth, metric="brier",
-                              seed=int(rng_for(args.root_seed, EXPERIMENT, 90, s_index).integers(2 ** 31)))
+            cfg = make_cfg_at(args.b0, args.alert_rate, **kw)
+            tv = truth_values_expected(cfg, args.n_truth, seed_block(args.root_seed, EXPERIMENT, 90, s_index))
             oracle = truth_E3_decomp(tv)
             truths[scenario] = {"policy_contrast": oracle, "shapley": shapley(tv, ["X", "pi", "Y"])}
             f0 = lambda xx: r_hat(cfg, xx)
@@ -196,6 +205,9 @@ def main():
     parser.add_argument("--n-truth", type=int, default=400000)
     parser.add_argument("--control-frac", type=float, default=0.3)
     parser.add_argument("--root-seed", type=int, default=2026092901)
+    parser.add_argument("--b0", type=float, default=None,
+                        help="outcome intercept of another operating point (e.g. -3.5, event rate about 7%%); use its own --root-seed and --output")
+    parser.add_argument("--alert-rate", type=float, default=0.2, help="alert rate that sets the threshold when --b0 is given")
     parser.add_argument("--output", default="merged_expE1.json")
     args = parser.parse_args()
     rows, truths = run(args)
@@ -207,6 +219,7 @@ def main():
                    "percentile bootstraps over replicates."),
         "parameters": {"reps": args.reps, "n_per_environment": args.n, "n_eval": args.n_eval,
                        "n_truth": args.n_truth, "control_frac": args.control_frac, "root_seed": args.root_seed,
+                       **({"b0": args.b0, "alert_rate": args.alert_rate} if args.b0 is not None else {}),
                        "experiment_block": EXPERIMENT, "rules": list(RULES),
                        "threshold_rules": list(THRESHOLD_RULES), "harm_grid": list(HARM_GRID)},
         "truth": truths, "table": table, "harm_sensitivity": harm, "worst_case": worst,
