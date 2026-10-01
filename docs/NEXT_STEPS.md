@@ -1,136 +1,124 @@
 # Next steps (handoff)
 
-State at hand-off: all of Josh's experiment tasks (E1 to E7) are done, apart
-from the E6 run on credentialed MIMIC-IV. Read `docs/JOSH_E1_E7_NOTES.md`
-first; `docs/E6_MIMIC.md` describes the E6 design. Work is on branch
-`codex/josh-e2-e5` (PR tucana1/drift-attribution#1).
+State: E1 to E5 and E7 are done and were checked against the manuscript in a
+second pass; the corrections are listed in `docs/JOSH_E1_E7_NOTES.md`. E6 is
+ready to run: `sim2/run_e6.sh` goes from a credentialed MIMIC-IV download to
+the paper numbers, and was tested end to end on the synthetic fixture. Read
+`docs/JOSH_E1_E7_NOTES.md` first; `docs/E6_MIMIC.md` describes the E6 design.
 
 ## 1. Run E6 on credentialed MIMIC-IV (required; closes task E6)
 
 **Where.** Your own machine, with PhysioNet credentialed access to MIMIC-IV.
 
 **Data handling (hard rule).** MIMIC-IV rows must not leave your machine or
-reach any hosted AI service (PhysioNet credentialed data use agreement and
-its guidance on online services). If an AI coding agent helps with this step,
-it may run the scripts and read what they print (counts, rates, aggregate
-estimates) and the aggregate JSON they write. It must not open anything under
-`data/` or the MIMIC-IV CSVs, and must not print rows. The two E6 scripts only
-print and save aggregates.
+reach any hosted AI service (PhysioNet credentialed data use agreement and its
+guidance on online services). Run the data steps yourself. An AI assistant
+must not open anything under `data/` or `~/physionet`, or the cohort error
+log; the scripts print and save aggregates only.
 
-### 1.1 Environment
+### 1.1 Smoke test on the open demo (optional, recommended)
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-e6.txt
+sim2/run_e6.sh demo
 ```
 
-### 1.2 Smoke test on the open MIMIC-IV demo (optional, recommended)
+Fetches the six demo tables (100 patients, ODbL, about 2 MB) into
+`data/mimic-iv-demo` and runs the extraction with errors shown. Expected: it
+finishes and prints a few dozen to a few hundred admissions; the acceptance
+checks fail at this size and are not enforced here. If extraction fails, fix
+`sim2/e6_mimic_cohort.py` (`TYPES`, `EXCLUDED_UNITS`) before the large
+download.
 
-The demo (100 patients, open access, no credentials) has the real table
-layout, so it catches schema problems before the large download. Results are
-meaningless at this size.
+### 1.2 Download
 
 ```sh
-wget -r -N -c -np -nH --cut-dirs=3 -P ~/physionet/mimic-iv-demo \
-     https://physionet.org/files/mimic-iv-demo/2.2/
-.venv/bin/python sim2/e6_mimic_cohort.py --mimic-root ~/physionet/mimic-iv-demo \
-     --out data/e6_demo_cohort.npz
+sim2/run_e6.sh download <physionet-username>
 ```
 
-Expected: the extraction finishes and prints a few dozen to a few hundred
-admissions. If it fails, fix `sim2/e6_mimic_cohort.py` (the `TYPES` table or
-the ward-unit exclusions) before the full run. The experiment script will
-refuse to write paper outputs for a cohort this small, and may stop for lack
-of events; the demo is only for the extraction.
+Six tables of MIMIC-IV v3.1 (about 3 GB, mostly `labevents`) into
+`~/physionet/mimiciv/3.1`, password asked once, partial files resumed,
+SHA-256 checked. Needs about 5 GB free. `MIMIC_VERSION=2.2` for v2.2,
+`MIMIC_ROOT=...` for another location.
 
-### 1.3 Download the full data (only the six tables needed)
+### 1.3 Cohort and checks
 
 ```sh
-for f in hosp/patients hosp/admissions hosp/transfers hosp/labevents hosp/d_labitems icu/icustays; do
-  wget -N -c --user <physionet-username> --ask-password \
-       -P ~/physionet/mimiciv/$(dirname $f) https://physionet.org/files/mimiciv/3.1/$f.csv.gz
-done
+sim2/run_e6.sh cohort
 ```
 
-`labevents` is the large file (a few GB compressed). v2.2 also works.
+Writes `data/e6_cohort.npz` and exits with status 3 if any acceptance check
+fails:
 
-### 1.4 Build the cohort and check it
-
-```sh
-.venv/bin/python sim2/e6_mimic_cohort.py --mimic-root ~/physionet/mimiciv --out data/e6_cohort.npz
-```
-
-Stop and investigate before step 1.5 if any of these fails:
-
-- admissions: tens of thousands or more (the size guard in step 1.5 needs at least 5,000);
+- admissions: at least 5,000 (expect tens of thousands);
 - event rate (ICU admission or in-hospital death within 12 h of a ward
-  creatinine draw): roughly 1% to 10%; outside 0.5% to 15%, check the ward
-  definition in `EXCLUDED_UNITS`;
-- every `anchor_year_group` from 2008 - 2010 to 2017 - 2019 present
-  (v3.x adds 2020 - 2022, excluded by default);
-- missingness of the core labs below about 10%.
+  creatinine draw) within 0.5% to 15% (expect about 1% to 10%); outside it,
+  check the ward definition in `EXCLUDED_UNITS`;
+- every `anchor_year_group` from 2008 - 2010 to 2017 - 2019 present;
+- missingness of each lab below 10%.
 
-### 1.5 Run the experiment
+Also read the printed list of ward units: every unit in it should be a ward.
 
-```sh
-OPENBLAS_NUM_THREADS=1 .venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_cohort.npz
-```
-
-This writes `figures/merged_expE6.json`, `figures/fig7_mimic.pdf` and their
-copies in `aaai/figures/`. Allow 15 to 30 minutes.
-
-### 1.6 Sensitivity runs (recommended, appendix)
-
-Same command with a tagged `--output figures/merged_expE6_<tag>.json` and
-`--figure figures/fig7_mimic_<tag>.pdf`:
-
-- treatment effect `--rrr 0.25` and `--rrr 0.75`;
-- alert rate `--alert-rate 0.05` and `--alert-rate 0.20`;
-- COVID-era drift: `--late "2020 - 2022"` (v3.x only).
-
-### 1.7 Update the manuscript
-
-- F7 (`\paragraph{F7: semi-synthetic MIMIC-IV`): replace the `\todo` with, from
-  `merged_expE6.json`, the policy target and the proposed estimate with its
-  interval in `deploy_only` and `drift_and_deploy`, the monitor's P(Y|X)
-  term, the union-graph estimate (`deploy_only`), the observed AUROC change,
-  and round-8 events averted for keep, naive, refit on A=0 and weighted refit
-  under the fixed threshold. Check the sign of the policy term before writing
-  "drop" or "improvement" (see section 2).
-- Appendix "Semi-synthetic MIMIC-IV experiment (E6)": remove the `\todo`; add
-  cohort size, event rate by period and the score's AUROC (all under
-  `cohort` in the JSON).
-- Add quoted-number checks for F7 to `check_e6` in
-  `sim2/validate_josh_results.py`, as `check_e1` does for F4.
-- Regenerate and check:
+### 1.4 Main and sensitivity runs
 
 ```sh
-.venv/bin/python sim2/make_figures2.py      # copies Figure 7 into aaai/figures/
-.venv/bin/python sim2/make_tables.py
-.venv/bin/python sim2/validate_josh_results.py
+sim2/run_e6.sh main          # 200 / 50 replicates; about 20 to 40 min with 4 workers
+sim2/run_e6.sh sensitivity   # rrr 0.25, 0.75; alert rate 5%, 20%; periods by admission year; 2020 - 2022 (v3.x)
 ```
 
-**Done when:** the validator passes with the E6 check active (not "skipped";
-it rejects demo-sized or fixture cohorts and an open F7 TODO), Figure 7
-renders in the compiled draft, and only aggregate files were committed
-(`figures/merged_expE6*.json`, `figures/fig7_mimic*.pdf`, their mirrors and
-the `.tex`); `data/` stays untracked.
+### 1.5 Report and manuscript
 
-## 2. Decisions for the team that this branch surfaces
+```sh
+sim2/run_e6.sh report
+```
 
-- **Prevalence** (appendix Table 5): at realistic ward prevalence, successful
-  alerting lowers the Brier score, and the monitor books that improvement to
-  the outcome mechanism. The introduction's "performance drops" premise (W1)
-  and the results framing (W7) should say this. Options: state the
-  prevalence dependence; add a realistic-prevalence operating point to
-  Experiment A; or also attribute a metric that falls at every prevalence
-  (AUROC does).
-- **E1 headline rule:** the to-do's rule (refit when the exogenous share
-  exceeds one half) refits needlessly under pure covariate shift; the
-  outcome-mechanism rule has zero regret in S1 to S4. Decide which the paper
-  leads with.
-- **Logging requirements** (Section 5): add alert exposure and the
-  clinician-response probabilities, which the weighted refit of E3 needs.
+Regenerates figures and tables (`aaai/tables/e6_mimic.tex` and
+`e6_sensitivity.tex`, which the E6 appendix includes automatically), prints
+the numbers F7 quotes and a draft of the F7 result sentences
+(`sim2/e6_report.py`), and runs the validator, which fails until the
+manuscript is updated:
+
+- F7: replace `\todo{Results from \texttt{merged\_expE6.json}...}` with the
+  result sentences. Check the wording against the sign of the policy term
+  (section 2, prevalence); the draft chooses it from the sign.
+- Appendix E6: replace `\todo{Numbers and Figure~\ref{fig:mimic}...}` with a
+  sentence pointing to Tables `tab:mimic` and `tab:mimic-sens`.
+
+**Done when:** the validator passes with the E6 check active (it rejects
+fixture or demo-sized cohorts, open F7 or appendix TODOs, and F7 text without
+the reported numbers), Figure 7 renders, and only the aggregate files printed
+by the report step are committed; `data/` stays untracked.
+
+## 2. Decisions for the team
+
+- **Prevalence** (appendix Tables `tab:prevalence` and `tab:prevalence-est`).
+  At a realistic event rate successful alerting lowers the Brier score and the
+  monitor books the improvement to the outcome mechanism. The new
+  low-prevalence run (6.6%, alert rate 20%) shows F1 and F4 hold with
+  estimators, not only oracle values (see `JOSH_E1_E7_NOTES.md`). The
+  introduction's "performance drops" premise (W1) and the results framing (W7)
+  still need a decision: state the prevalence dependence, move the
+  low-prevalence point into the main text, or also attribute a metric that
+  falls at every prevalence (AUROC does).
+- **E1 headline rule.** The task rule (refit when the exogenous share exceeds
+  one half) refits needlessly under pure covariate shift. The outcome-share
+  rule has zero regret in S1 to S4 at the calibrated point; at 6.6% prevalence
+  it loses 0.55 points in S4, where the outcome share sits at 0.52, next to the
+  cut-off. Refitting on untreated patients has zero worst-case regret at both
+  operating points. Decide which rule the paper leads with.
+- **Logging requirements** (Section 5): add alert exposure and either the
+  clinician-response probabilities or enough to model them; with estimated
+  propensities the weighted refit of E3 is within 0.01 points of the logged
+  version.
+- **Identification table, site stepped wedge, prospective contrast ("No").**
+  In E5 the crossover difference in differences minus the DiD-anchored
+  deployment-caused term recovers the prospective contrast within 1.4% in all
+  four cells. The control change cancels, so this is a within-site,
+  covariate-adjusted before/after comparison: it holds only without
+  outcome-mechanism drift, which E5 does not simulate. Keep "No" or qualify it.
+- **Threshold-discontinuity appendix** (`\todo` in Appendix A). The numbers are
+  in `merged_expE7.json`, part E, including the policy-effect curve. The curve
+  is hump-shaped and falls to zero at high scores, so condition (b) of
+  Proposition 3 (monotone effect) does not hold in the simulation.
 
 ## 3. Reference checks (L2/L3)
 
@@ -145,13 +133,16 @@ posted December 2024), and Keogh and van Geloven 2024 has volume and pages.
 
 ## 4. Assessed and not used
 
-Synthetic Hospital (Park, Chen, Dettmers, 2026): see
-`docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md`.
+See `docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md`: Synthetic Hospital (Park, Chen,
+Dettmers, 2026); the trajectory generator of Zhou et al. (arXiv 2603.06720;
+code CC BY-NC, no weights or data released); GHOSTS (code public, synthetic
+corpus not released, ICU only). None removes the need for credentialed data.
 
 ## 5. Optional extensions
 
 - **eICU-CRD** (credentialed, 208 hospitals): real multi-site data with
-  hospital identifiers, to ground the site-level findings of E5.
-- **COVID-era drift** in E6 (section 1.6).
-- **GHOSTS** synthetic ICU time series as an open fallback testbed, after
-  checking the corpus licence.
+  hospital identifiers, to ground the site-level findings of E5. The E6
+  pattern (local run, text-only reads, aggregate output) carries over.
+- **AUROC attribution**: the third prevalence option above. `dgp.is_values`
+  already takes `metric="auroc"`; `naive2_est` and `E3` in `merged.py` are
+  written for the Brier score and would need weighted-AUROC versions.
