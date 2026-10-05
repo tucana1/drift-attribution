@@ -1,3 +1,4 @@
+README.md
 .gitignore
 MANIFEST.txt
 aaai/aaai2026.bst
@@ -12,8 +13,6 @@ docs/E6_MIMIC.md
 docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md
 docs/NEXT_STEPS.md
 requirements-e6.txt
-figures/adaptive_threshold_arms.csv
-figures/eps_continuum_audit.csv
 figures/exp1_results.json
 figures/exp2_results.json
 figures/exp3_sweep.json
@@ -48,7 +47,6 @@ figures/merged_expH.json
 figures/merged_expM.json
 figures/merged_expP.json
 figures/performance_drop.json
-figures/nonidentification_n_scaling.csv
 sim/core.py
 sim/exp1_scenarios.py
 sim/exp2_retrain.py

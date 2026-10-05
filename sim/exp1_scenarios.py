@@ -1,5 +1,6 @@
+from pathlib import Path
 import numpy as np, json, sys
-sys.path.insert(0, ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core import *
 
 D = 5
@@ -40,11 +41,21 @@ def one_run(scenario, seed, n=40000, rollout_control=0.3):
                       "treat_rate_e1": float(s1.A.mean())}
     return out
 
+def _out(name):
+    """Output path in figures/ (run from any directory; mirror() copies it to aaai/figures/)."""
+    return Path(__file__).resolve().parents[1] / "figures" / name
+
+
+def mirror(*names):
+    root = Path(__file__).resolve().parents[1]
+    for name in names:
+        (root / "aaai/figures" / name).write_bytes((root / "figures" / name).read_bytes())
+
 
 if __name__ == "__main__":
     seeds = range(20)
     res = [one_run(sc, sd) for sc in ["S1", "S2", "S3", "S4"] for sd in seeds]
-    json.dump(res, open("../figures/exp1_results.json", "w"), indent=1, default=float)
+    _out("exp1_results.json").write_text(json.dumps(res, indent=1, default=float)); mirror("exp1_results.json")
 
     def agg(sc, path):
         vals = []

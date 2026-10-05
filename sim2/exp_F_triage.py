@@ -25,8 +25,9 @@ Two policy-contrast estimands, which coincide only when triage = 0:
                  (keeps the current patient mix; this is what the randomised
                   arm identifies and what the keep-or-retrain decision needs)
 """
+from pathlib import Path
 import itertools, json, sys, numpy as np
-sys.path.insert(0, ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dgp
 from dgp import p_treat, p_y1, mu_of, logpdf_x, brier, shapley, truth_values, is_values, naive2_values
 from merged import make_cfg, sample_po, E3, truth_E3_decomp
@@ -114,7 +115,17 @@ def run(triages=(0.0, 0.1, 0.2, 0.3, 0.5), seeds=20, n=20_000):
                   f" | E3 pi {row['e3_pi']:+.4f}±{row['e3_pi_sd']:.4f}")
     return out
 
+def _out(name):
+    """Output path in figures/ (run from any directory; mirror() copies it to aaai/figures/)."""
+    return Path(__file__).resolve().parents[1] / "figures" / name
+
+
+def mirror(*names):
+    root = Path(__file__).resolve().parents[1]
+    for name in names:
+        (root / "aaai/figures" / name).write_bytes((root / "figures" / name).read_bytes())
+
 
 if __name__ == "__main__":
     res = run()
-    json.dump(res, open("../figures/merged_expF.json", "w"), indent=1, default=float)
+    _out("merged_expF.json").write_text(json.dumps(res, indent=1, default=float)); mirror("merged_expF.json")

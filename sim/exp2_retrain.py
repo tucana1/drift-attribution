@@ -1,5 +1,6 @@
+from pathlib import Path
 import numpy as np, json, sys
-sys.path.insert(0, ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core import *
 from exp1_scenarios import make_envs, BASE
 
@@ -31,10 +32,20 @@ def run(seed, n=40000, rounds=4):
         f = (lambda c: (lambda X: c.predict_proba(np.c_[X, np.zeros(len(X))])[:, 1]))(clf)   # predict under A=0
     return {"seed": seed, "base_events": base_events, "keep": keep, "retrain": retrain, "cond": cond}
 
+def _out(name):
+    """Output path in figures/ (run from any directory; mirror() copies it to aaai/figures/)."""
+    return Path(__file__).resolve().parents[1] / "figures" / name
+
+
+def mirror(*names):
+    root = Path(__file__).resolve().parents[1]
+    for name in names:
+        (root / "aaai/figures" / name).write_bytes((root / "figures" / name).read_bytes())
+
 
 if __name__ == "__main__":
     res = [run(s) for s in range(20)]
-    json.dump(res, open("../figures/exp2_results.json", "w"), indent=1, default=float)
+    _out("exp2_results.json").write_text(json.dumps(res, indent=1, default=float)); mirror("exp2_results.json")
     base = np.mean([r["base_events"] for r in res])
     print("standard care event rate (no model): %.4f" % base)
     for arm in ["keep", "retrain", "cond"]:

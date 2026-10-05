@@ -1,5 +1,6 @@
+from pathlib import Path
 import numpy as np, json, sys
-sys.path.insert(0, ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core import *
 from exp1_scenarios import BASE
 
@@ -64,7 +65,17 @@ def rd_experiment(seeds=20, n=60000, beta_A=-1.5, p_adh=0.7, tau=0.3):
     print("effect curve theta(r):", np.round(np.nanmean([o["theta_curve"] for o in out], 0), 3))
     return out
 
+def _out(name):
+    """Output path in figures/ (run from any directory; mirror() copies it to aaai/figures/)."""
+    return Path(__file__).resolve().parents[1] / "figures" / name
+
+
+def mirror(*names):
+    root = Path(__file__).resolve().parents[1]
+    for name in names:
+        (root / "aaai/figures" / name).write_bytes((root / "figures" / name).read_bytes())
+
 
 if __name__ == "__main__":
-    rows = sweep(); json.dump(rows, open("../figures/exp3_sweep.json", "w"), indent=1, default=float)
-    rd = rd_experiment(); json.dump(rd, open("../figures/exp4_rd.json", "w"), indent=1, default=float)
+    rows = sweep(); _out("exp3_sweep.json").write_text(json.dumps(rows, indent=1, default=float)); mirror("exp3_sweep.json")
+    rd = rd_experiment(); _out("exp4_rd.json").write_text(json.dumps(rd, indent=1, default=float)); mirror("exp4_rd.json")

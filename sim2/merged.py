@@ -8,9 +8,10 @@ Added here:
   * ESS diagnostic for the union-graph importance-sampling estimator, over an eps continuum incl. eps = 0
   * retrain-and-redeploy, counterfactual net benefit, threshold discontinuity
 """
+from pathlib import Path
 import numpy as np, itertools, json, sys
 from sklearn.linear_model import LogisticRegression
-sys.path.insert(0, "."); import dgp
+sys.path.insert(0, str(Path(__file__).resolve().parent)); import dgp
 from dgp import sigmoid, r_hat, suspicion, p_treat, p_y1, mu_of, logpdf_x, brier, auroc, shapley, truth_values, is_values, naive2_values
 
 
@@ -104,8 +105,28 @@ def union3_with_ess(cfg, n, clip, seed):
     return shapley(vals, ["X", "pi", "Y"]), ess, diags[frozenset({"pi"})]
 
 
+# ------------------------------------------------------------------ seeds
+# Seeds in this file (first-pass experiments A to F and M; the paper's numbers
+# come from the E-series reruns, which use independent SeedSequence blocks per
+# row, see common.seed_block and the README).
+#   * Ground-truth coalition tables: seed 0 (dgp.truth_values).
+#   * Union-graph and monitor estimators: their pre-deployment sample uses seed
+#     sd = 0, 1, ... (dgp.is_values, dgp.naive2_values), so within a replicate
+#     the two share patients, which makes their comparison paired.
+#   * Randomised-arm samples for the proposed decomposition start at 100 + sd.
+#     The offset keeps them off the streams above: with default_rng(sd) they
+#     would reuse the union-graph sample of the same replicate, and replicate 0
+#     would reuse the first draws of the truth table. Any run with fewer than
+#     100 seeds therefore never shares a stream between the two estimators.
+#   * The other experiments use their own offsets for the same reason
+#     (B: 300, C: 500 and 10,000, D: 700, E: 900; exp_F_triage.py reuses 100).
+# Limits of this scheme: rows of a sweep reuse the same seeds (every eps in B
+# draws from 300 + sd), and replicate 0 of the union-graph estimator shares its
+# first draws with the truth table. Bias claims across rows are therefore taken
+# from the E-series reruns, not from these files.
+
 # ------------------------------------------------------------------ scenarios
-SCEN = {"S1": dict(delta=0.5, dy=0.0, deploy=False), "S2": dict(delta=0.0, dy=0.6, deploy=False),
+SCEN ={"S1": dict(delta=0.5, dy=0.0, deploy=False), "S2": dict(delta=0.0, dy=0.6, deploy=False),
         "S3": dict(delta=0.0, dy=0.0, deploy=True), "S4": dict(delta=0.5, dy=0.6, deploy=True)}
 
 
@@ -235,8 +256,18 @@ def exp_E(seeds=20, n=80000, h=0.04):
     print(f"\nexp E: true global {tg:+.4f}, RD local {tt:+.4f} ± {np.std([o['theta_tau'] for o in out]):.4f}, curve {np.round(np.nanmean([o['curve'] for o in out],0),3)}")
     return out
 
+def _out(name):
+    """Output path in figures/ (run from any directory; mirror() copies it to aaai/figures/)."""
+    return Path(__file__).resolve().parents[1] / "figures" / name
+
+
+def mirror(*names):
+    root = Path(__file__).resolve().parents[1]
+    for name in names:
+        (root / "aaai/figures" / name).write_bytes((root / "figures" / name).read_bytes())
+
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "A"
     fn = {"A": exp_A, "B": exp_B, "C": exp_C, "D": exp_D, "E": exp_E, "M": exp_M}[which]
-    res = fn(); json.dump(res, open(f"../figures/merged_exp{which}.json", "w"), indent=1, default=float)
+    res = fn(); _out(f"merged_exp{which}.json").write_text(json.dumps(res, indent=1, default=float)); mirror(f"merged_exp{which}.json")
