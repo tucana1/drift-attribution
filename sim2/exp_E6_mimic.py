@@ -485,7 +485,7 @@ def main():
     STATE["shared"] = shared
     held_out = c.early & ~c.model_train
     result = {
-        "design": __doc__.split("\n\n")[2].replace("\n", " "),
+        "design": " ".join(" ".join(p.split()) for p in __doc__.split("\n\n")[3:6]),
         "semi_synthetic": True, "synthetic_fixture": c.synthetic,
         "simulated_components": ["deployment of a logistic score fitted to part of the early period",
                                  f"alert threshold at a {args.alert_rate:.0%} alert rate on that part",
