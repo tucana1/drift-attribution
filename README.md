@@ -31,15 +31,15 @@ Times are on 4 cores.
 
 | File in `figures/` | Command | Time |
 |---|---|---|
-| `merged_expE7.json` (Experiments A, B, D, E, F with intervals) | `python3 sim2/exp_E7_intervals.py` | RUNTIME_E7 |
-| `merged_expE7_prev.json` (Experiment A at 6.6% event rate) | `python3 sim2/exp_E7_intervals.py --parts A --b0 -3.5 --alert-rate 0.2 --root-seed 2026092917 --workers 6 --output merged_expE7_prev.json` | RUNTIME_E7P |
-| `merged_expH.json` (Experiment C, update rules) | `python3 sim2/exp_H_correction.py` | RUNTIME_H |
-| `merged_expE1.json` (keep-or-refit rules) | `python3 sim2/exp_E1_decision.py` | RUNTIME_E1 |
-| `merged_expE1_prev.json` (same, 6.6% event rate) | `python3 sim2/exp_E1_decision.py --b0 -3.5 --alert-rate 0.2 --root-seed 2026092911 --output merged_expE1_prev.json` | RUNTIME_E1P |
-| `merged_expG2.json` (site rollout) | `python3 sim2/exp_G2_sites.py` | RUNTIME_G2 |
-| `merged_expAB_robustness.json` (more covariates, misspecification) | `python3 sim2/exp_AB_robustness.py` | RUNTIME_AB |
-| `merged_expP.json` (prevalence) | `python3 sim2/exp_prevalence.py` | RUNTIME_P |
-| `performance_drop.json` | `python3 sim2/check_performance_drop.py` | RUNTIME_PD |
+| `merged_expE7.json` (Experiments A, B, D, E, F with intervals) | `python3 sim2/exp_E7_intervals.py` | 12 min |
+| `merged_expE7_prev.json` (Experiment A at 6.6% event rate) | `python3 sim2/exp_E7_intervals.py --parts A --b0 -3.5 --alert-rate 0.2 --root-seed 2026092917 --workers 6 --output merged_expE7_prev.json` | 9 min |
+| `merged_expH.json` (Experiment C, update rules) | `python3 sim2/exp_H_correction.py` | 2.5 min |
+| `merged_expE1.json` (keep-or-refit rules) | `python3 sim2/exp_E1_decision.py` | 1 min |
+| `merged_expE1_prev.json` (same, 6.6% event rate) | `python3 sim2/exp_E1_decision.py --b0 -3.5 --alert-rate 0.2 --root-seed 2026092911 --output merged_expE1_prev.json` | 1 min |
+| `merged_expG2.json` (site rollout) | `python3 sim2/exp_G2_sites.py` | 17 s |
+| `merged_expAB_robustness.json` (more covariates, misspecification) | `python3 sim2/exp_AB_robustness.py` | 30 s |
+| `merged_expP.json` (prevalence) | `python3 sim2/exp_prevalence.py` | 7 s |
+| `performance_drop.json` | `python3 sim2/check_performance_drop.py` | 3 s |
 | `merged_expA.json` ... `merged_expM.json` (first-pass A to E and M) | `python3 sim2/merged.py A` (or B, C, D, E, M) | under 15 s each |
 | `merged_expF.json` (first-pass triage) | `python3 sim2/exp_F_triage.py` | 9 s |
 | `exp1_results.json` ... `exp4_rd.json` (first pass, `sim/`) | `python3 sim/exp1_scenarios.py`, `sim/exp2_retrain.py`, `sim/exp3_sweep_exp4_rd.py`; figures `sim/make_figures.py` | under 10 s each |
@@ -49,9 +49,13 @@ Times are on 4 cores.
 `python3 sim2/validate_josh_results.py` fails if a data file in `figures/` has
 no entry in this list (`PRODUCERS` in that script).
 
-Rerunning a script reproduces its file: the experiments behind the draft
-reproduce byte for byte, and the first-pass files to within about 1e-12
-(floating-point differences between library builds).
+Checked on 5 October 2026 by rerunning every simulation command above (all but
+the two E6 rows) in a clean copy
+(about 30 minutes in total): every file reproduces, with numeric differences of
+at most 2e-10 (floating-point rounding in the solvers), and the figures and
+tables rebuilt from the rerun are byte-identical to the committed ones. The
+`open_stand_in` part of `performance_drop.json` is filled only when
+`data/e6_sepsis_cohort.npz` (built from PhysioNet data, not in git) is present.
 
 ## Figures and tables
 
