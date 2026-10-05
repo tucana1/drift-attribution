@@ -192,11 +192,8 @@ Brier change is negative.
 
 ## Seed blocks
 
-Every E-series script draws from `np.random.SeedSequence([root, experiment,
-row, replicate, ...])` (`sim2/common.py`): E1 root 2026092901, E3 2026092903,
-E5 2026092905, E6 2026092906, E7 2026092907, prevalence 2026092908, E1 at low
-prevalence 2026092911, E7 part A at low prevalence 2026092917. Rows of a sweep
-never share draws; rules or estimators compared within a row do.
+See the Seeds section of `README.md` (root seed per experiment, and why the
+first-pass randomised-arm seeds start at 100).
 
 ## Reproduce
 

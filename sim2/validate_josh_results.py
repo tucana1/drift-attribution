@@ -312,8 +312,52 @@ def check_style():
     assert "\u2014" not in TEX and "---" not in re.sub(r"%.*", "", TEX), "no em dashes (team convention)"
 
 
+# Every data file in figures/ and the command that writes it (task R1). Paths are
+# relative to the repository root; every command runs from any directory.
+PRODUCERS = {
+    "exp1_results.json": "sim/exp1_scenarios.py",
+    "exp2_results.json": "sim/exp2_retrain.py",
+    "exp3_sweep.json": "sim/exp3_sweep_exp4_rd.py",
+    "exp4_rd.json": "sim/exp3_sweep_exp4_rd.py",
+    **{f"merged_exp{k}.json": f"sim2/merged.py {k}" for k in "ABCDEM"},
+    "merged_expF.json": "sim2/exp_F_triage.py",
+    "merged_expG2.json": "sim2/exp_G2_sites.py",
+    "merged_expH.json": "sim2/exp_H_correction.py",
+    "merged_expE1.json": "sim2/exp_E1_decision.py",
+    "merged_expE1_prev.json": "sim2/exp_E1_decision.py --b0 -3.5 --alert-rate 0.2 --root-seed 2026092911 "
+                              "--output merged_expE1_prev.json",
+    "merged_expAB_robustness.json": "sim2/exp_AB_robustness.py",
+    "merged_expP.json": "sim2/exp_prevalence.py",
+    "performance_drop.json": "sim2/check_performance_drop.py",
+    "merged_expE7.json": "sim2/exp_E7_intervals.py",
+    "merged_expE7_prev.json": "sim2/exp_E7_intervals.py --parts A --b0 -3.5 --alert-rate 0.2 --root-seed 2026092917 "
+                              "--workers 6 --output merged_expE7_prev.json",
+    "merged_expE6.json": "sim2/run_e6.sh (credentialed MIMIC-IV, local only)",
+    "e6_open/merged_expE6_sepsis2019_AtoB.json": "sim2/exp_E6_mimic.py on sim2/e6_sepsis_cohort.py output "
+                                                 "(docs/E6_MIMIC.md)",
+    "e6_open/merged_expE6_sepsis2019_BtoA.json": "sim2/exp_E6_mimic.py on sim2/e6_sepsis_cohort.py output "
+                                                 "(docs/E6_MIMIC.md)",
+}
+
+
+def check_producers():
+    data = {p.relative_to(ROOT / "figures").as_posix() for p in (ROOT / "figures").rglob("*")
+            if p.suffix in (".json", ".csv")}
+    orphans = sorted(data - set(PRODUCERS))
+    assert not orphans, f"files in figures/ with no producing script in PRODUCERS: {orphans}"
+    for name, command in PRODUCERS.items():
+        script = command.split()[0]
+        assert (ROOT / script).exists(), f"{name}: producing script {script} is missing"
+        base = name.split("/")[-1]
+        if "--output" in command or "e6" in base.lower():
+            continue          # name given on the command line, or written by the E6 runner
+        text = (ROOT / script).read_text()
+        assert base in text or (script == "sim2/merged.py" and "merged_exp{which}" in text), \
+            f"{script} does not write {base}"
+
+
 if __name__ == "__main__":
-    for name, fn in (("E3 (Experiment H)", check_h), ("E1 decision rules", check_e1), ("E4 robustness", check_ab),
+    for name, fn in (("producing scripts", check_producers), ("E3 (Experiment H)", check_h), ("E1 decision rules", check_e1), ("E4 robustness", check_ab),
                      ("E5 sites", check_g2), ("E7 intervals", check_e7),
                      ("low prevalence", check_prevalence_estimators), ("E6 MIMIC-IV", check_e6),
                      ("E6 open stand-in", check_e6_open),
