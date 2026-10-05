@@ -38,7 +38,7 @@ def tables_e7():
             ("Union graph $\\pi$, unclipped", "union3_raw_pi_vs_shapley", "own"),
             ("Union graph $\\pi$, clipped", "union3_clip_pi_vs_shapley", "own"))
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
-             "\\caption{Analyst-facing intervals (E7). Share of replicates (\\%) whose 95\\% patient-level bootstrap "
+             "\\caption{Analyst-facing intervals. Share of replicates (\\%) whose 95\\% patient-level bootstrap "
              f"interval ({d['parameters']['boots']} resamples) covers the estimator's own estimand, with the median "
              f"interval width in Brier units, over {reps} independent replicates per scenario ($n=20{{,}}000$ per "
              "environment). One row scores the monitor against the policy-contrast outcome term, the target a "
@@ -58,7 +58,7 @@ def tables_e7():
     write("e7_coverage", lines)
 
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
-             "\\caption{Positivity continuum and sample size (E7). Top: coverage (\\%) of the 95\\% patient-level "
+             "\\caption{Positivity continuum and sample size. Top: coverage (\\%) of the 95\\% patient-level "
              "bootstrap interval for the policy term, S3 operating point. Bottom: union-graph estimate at "
              "$\\varepsilon=0$ against its target, with the median analyst interval; the interval narrows around a "
              "value of the wrong sign.}", "\\label{tab:positivity-ci}",
@@ -83,7 +83,7 @@ def tables_e7():
     half = max(max(e["mean"] - e["ci95"][0], e["ci95"][1] - e["mean"])
                for r in D if r["theta"] == 2.5 for e in (r["net_averted_pp_by_harm"][str(h)] for h in grid))
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{4pt}",
-             "\\caption{Harm sensitivity (E7). Net events averted by the alert policy against standard care "
+             "\\caption{Harm sensitivity. Net events averted by the alert policy against standard care "
              "(percentage points) when each extra treatment of a patient whose untreated outcome is 0 costs $h$ "
              f"events; $\\theta = 2.5$, mean over {d['parameters']['reps_d']} independent replicates per cell; "
              f"95\\% bootstrap intervals are within $\\pm{half:.2f}$.}}",

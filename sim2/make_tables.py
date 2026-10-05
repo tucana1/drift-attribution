@@ -53,7 +53,7 @@ def table_e1():
     reps = d["parameters"]["reps"]
     lines = [
         "\\begin{table}[t]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
-        "\\caption{Keep-or-refit rules (E1), fixed alert threshold. Events averted against standard care in "
+        "\\caption{Keep-or-refit rules, fixed alert threshold. Events averted against standard care in "
         "the window after the decision (percentage points), mean over "
         f"{reps} independent replicates per scenario; 95\\% bootstrap intervals are within "
         f"$\\pm{max(half_widths):.2f}$. Percentages give how often a rule refits. Regret is measured "
@@ -77,7 +77,7 @@ def table_e1():
 
     # appendix: rate-held threshold and harm sensitivity
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
-             "\\caption{E1 under the rate-held threshold (events averted, pp) and harm sensitivity under the fixed "
+             "\\caption{Keep-or-refit rules under the rate-held threshold (events averted, pp) and harm sensitivity under the fixed "
              "threshold: net events averted when each extra treatment of a patient whose untreated outcome is 0 "
              "costs $h$ events.}", "\\label{tab:decision-app}",
              "\\begin{tabular}{llrrrr}", "\\toprule", "Threshold & Rule & S1 & S2 & S3 & S4\\\\", "\\midrule"]
@@ -109,7 +109,7 @@ def table_e3():
     settings = ("fixed_k0", "fixed_k2", "fixed_nl", "rate_k0", "rate_k2", "rate_nl")
     last = d["parameters"]["rounds"]
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             f"\\caption{{Update rules after deployment (E3), events averted against standard care at round {last} "
+             f"\\caption{{Update rules after deployment (Experiment C), events averted against standard care at round {last} "
              f"(percentage points), mean and 95\\% bootstrap interval over {d['parameters']['seeds']} independent seeds "
              "per column. ``Weighted'' uses $1/P(A{=}0\\mid X)$ from the logged alert rule and response "
              "probabilities; ``estimated weights'' replaces them with a logistic regression of $A$ on $X$, the alert "
@@ -137,7 +137,7 @@ def table_e4():
         return
     from common import bootstrap_mean_ci
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize",
-             "\\caption{S3 attribution and $\\varepsilon=0$ bias (E4), Brier units. Estimates are means over "
+             "\\caption{S3 attribution and $\\varepsilon=0$ bias with more covariates and a misspecified outcome, Brier units. Estimates are means over "
              f"{d['parameters']['seeds_per_row']} independent seeds with 95\\% bootstrap intervals. The union-graph bias at "
              "$n=" + f"{d['parameters']['n_scaling'][-1]:,}".replace(",", "{,}") + "$ is relative to its oracle Shapley target.}",
              "\\label{tab:robustness}", "\\resizebox{\\columnwidth}{!}{%", "\\begin{tabular}{lrrrr}", "\\toprule",
@@ -168,7 +168,7 @@ def table_e5():
             ("x_endogenous_loss", "Induced"), ("x_exogenous_loss", "Exog."),
             ("x_endogenous_loss_did", "Induced"), ("x_exogenous_loss_did", "Exog."))
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             "\\caption{Persistent-site stepped wedge (E5): bias as a percentage of the true value, with 95\\% bootstrap "
+             "\\caption{Persistent-site stepped wedge: bias as a percentage of the true value, with 95\\% bootstrap "
              f"interval, over {d['parameters']['seeds_per_row']} independent seeds per row. Rollout order is random or linked "
              "to the site characteristic; covariate trends are common or site specific. Retrospective term: crossover "
              "difference in differences. $X$ split in the covariate mean, and on the Brier scale by the plug-in and the "
@@ -221,7 +221,7 @@ def table_prevalence_estimators():
         return
     A, op = a["A"], a["A"]["operating_point"]
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             f"\\caption{{Experiment A and E1 at an untreated event rate of {100 * op['event_rate_untreated']:.1f}\\% "
+             f"\\caption{{Experiment A and the keep-or-refit rules at an untreated event rate of {100 * op['event_rate_untreated']:.1f}\\% "
              f"($b_0 = {op['b0']:g}$, alert rate {100 * e1['parameters']['alert_rate']:.0f}\\%), $n = 20{{,}}000$ per "
              "environment. Top: attribution of the Brier-score change, oracle targets and estimator means with 95\\% "
              f"bootstrap intervals over {a['parameters']['reps_a']} replicates, and coverage (\\%) of the 95\\% "
@@ -229,7 +229,7 @@ def table_prevalence_estimators():
              "$P(Y\\mid X)$ term against the policy-contrast outcome term. The union-graph estimator targets the "
              "policy player's Shapley value, "
              f"{fmt(A['references']['S3']['shapley_pi']['value'], 4, sign=True)} in S3 and "
-             f"{fmt(A['references']['S4']['shapley_pi']['value'], 4, sign=True)} in S4. Bottom: E1, events averted after the "
+             f"{fmt(A['references']['S4']['shapley_pi']['value'], 4, sign=True)} in S4. Bottom: keep-or-refit rules, events averted after the "
              f"keep-or-refit decision (percentage points, fixed threshold, {e1['parameters']['reps']} replicates per "
              "scenario), with how often a rule refits.}", "\\label{tab:prevalence-est}",
              "\\resizebox{\\textwidth}{!}{%", "\\begin{tabular}{lcccccc}", "\\toprule",
@@ -303,7 +303,7 @@ def table_e6(d=None):
     S, T = A["summary"], A["truth"]
     names = ("deploy_only", "drift_only", "drift_and_deploy")
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             f"\\caption{{Semi-synthetic MIMIC-IV (E6). Cohort: {thousands(c['admissions'])} ward admissions of "
+             f"\\caption{{Semi-synthetic MIMIC-IV. Cohort: {thousands(c['admissions'])} ward admissions of "
              f"{thousands(c['patients'])} adult patients; event rate {100 * c['event_rate_early']:.1f}\\% in {years(p['early'])} and "
              f"{100 * c['event_rate_late']:.1f}\\% in {years(p['late'])}; score AUROC "
              f"{c['score_auroc_early_heldout']:.3f} on held-out early patients and {c['score_auroc_late']:.3f} in the "
@@ -345,7 +345,7 @@ def table_e6_sensitivity(runs=None):
     from e6_report import brier_digits, final_round
     k = min(brier_digits(d) for _, _, d in rows)
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             "\\caption{E6 sensitivity. Deployment-only attribution (policy contrast, its randomised-arm estimate and "
+             "\\caption{Semi-synthetic MIMIC-IV, sensitivity runs. Deployment-only attribution (policy contrast, its randomised-arm estimate and "
              "the monitor's $P(Y\\mid X)$ term, Brier units) and events averted at the last round under the fixed "
              "threshold (percentage points). Means with 95\\% bootstrap intervals over replicates; the main analysis "
              "uses an alert rate of 10\\%, an action that prevents the event with probability 0.5 and periods by "

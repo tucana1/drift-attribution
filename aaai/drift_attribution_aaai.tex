@@ -249,7 +249,7 @@ assumption.
 
 \begin{table*}[t]
 \centering\small
-\caption{Identification by design, checked against Experiments F and E5
+\caption{Identification by design, checked against Experiment F and the site-rollout experiment
 (Table~\ref{tab:sites}). ``$X$ split'' separates the deployment-caused from the
 exogenous covariate shift. Site designs need site identities and rollout dates
 and cover the crossover cohorts that have a not-yet-deployed comparison. Under
@@ -318,8 +318,8 @@ monitoring pipeline without action logs computes, with the covariate density
 ratio estimated by a classifier; (iii) the proposed decomposition
 (Section~\ref{sec:estimand}) with the policy term identified from a randomised
 unalerted arm ($30\%$ of post-deployment patients). Each environment has
-$n = 20{,}000$ patients. Every row of every sweep has its own seed block
-(E7), so no bias claim across rows reuses patients. Numbers are means over
+$n = 20{,}000$ patients. Every row of every sweep has its own seed block,
+so no bias claim across rows reuses patients. Numbers are means over
 independent replicates (100 per scenario for attribution, 30 per positivity
 level, 20 per utility cell, 30 per triage level) with 95\% percentile bootstrap
 intervals over replicates in brackets; these measure the Monte Carlo error of
@@ -334,7 +334,7 @@ estimator's own estimand is in Appendix~\ref{app:intervals}.
 Oracle rows (last column ``Yes'') use true simulator mechanism probabilities
 and serve only to validate targets. The original deployed score is available
 to every method. Site designs also need site identities and rollout dates;
-the plug-in Brier-scale $X$ split of E5 additionally assumes a Gaussian
+the plug-in Brier-scale $X$ split of the site-rollout experiment additionally assumes a Gaussian
 location shift. The weighted refit needs the alert exposure and the
 clinician-response probabilities, logged or estimated.}
 \label{tab:information}
@@ -342,7 +342,7 @@ clinician-response probabilities, logged or estimated.}
 \toprule
 Estimator or rule & Pre sample & Post sample & Action log & Randomised arm & Oracle\\
 \midrule
-\multicolumn{6}{l}{\emph{Attribution (Experiments A, B, F, E5, E6)}}\\
+\multicolumn{6}{l}{\emph{Attribution (Experiments A, B and F, site rollout, MIMIC-IV)}}\\
 Monitor, two-player, estimated ratio & $(X,Y)$ & $(X,Y)$ & No & No & No\\
 Monitor, two-player, oracle ratios & $(X,Y)$ & None & No & No & Yes\\
 Union graph IS, raw or clipped & $(X,A,Y)$ & None & Yes & No & Yes\\
@@ -350,7 +350,7 @@ Proposed, randomised arm & $(X,Y)$ & $(X,Y)$ & No & Yes & No\\
 Proposed, oracle policy weights & $(X,Y)$ & $(X,A,Y)$ & Yes & No & Yes\\
 Site crossover difference in differences & $(X,Y)$ & $(X,Y)$ & No & No & No\\
 Threshold discontinuity, local ITT & None & $(\rhat,Y)$ & No & No & No\\
-\multicolumn{6}{l}{\emph{Update rules (E3) and refit decisions (E1)}}\\
+\multicolumn{6}{l}{\emph{Update rules (Experiment C) and keep-or-refit decisions}}\\
 Naive refit & Score only & $(X,Y)$ & No & No & No\\
 Refit below the alert threshold & Score only & $(X,Y)$, alert & No & No & No\\
 Refit on $A=0$; condition on $A$ & Score only & $(X,A,Y)$ & Yes & No & No\\
@@ -363,6 +363,15 @@ The oracle rows validate targets in simulation. They are not deployable
 estimators. The randomised-arm row uses assignment and outcome, while the site
 row needs a credible site-level comparison; neither observes counterfactual
 outcomes directly.
+
+\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig1_attribution.pdf}
+\caption{Attribution of the Brier-score change under S3 and S4: two oracle
+references (open markers: Shapley game; filled: policy-contrast estimand) and
+four estimators. Points are means over 100 independent replicates
+($n = 20{,}000$ per environment); thick bars are 95\% bootstrap intervals of
+the mean, thin light bars the central 95\% of single replicates, i.e. the
+range one analyst's estimate can fall in. The monitor has no policy player.
+Dashed line: total change.}\label{fig:attr}\end{figure*}
 
 \paragraph{Two references, not one (Figure~\ref{fig:attr}).} With oracle
 coalition values, the symmetric Shapley share of the policy player and the
@@ -396,6 +405,17 @@ their targets, so the pathology is specific to deployment. Under S4 the
 randomised-arm estimate ($+0.0343 / -0.0025 / +0.0433$ for $X / Y / \pi$)
 matches the target ($+0.0345 / -0.0024 / +0.0431$).
 
+\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig2_positivity.pdf}
+\caption{The positivity continuum, S3 operating point. Left: policy
+contribution by estimator as the pre-deployment treatment probability
+$\varepsilon$ in the alert-only region varies; means over 30 independent
+replicates per $\varepsilon$ with 95\% bootstrap intervals of the mean.
+Middle: effective sample size of the policy weights. Right: at
+$\varepsilon = 0$, the union-graph estimate against its target as $n$ grows
+(10 independent replicates per $n$); bars are the median 95\% patient-level
+bootstrap interval an analyst would report, which narrows around a value of
+the wrong sign.}\label{fig:positivity}\end{figure*}
+
 \paragraph{F2: more data makes the wrong answer more confident
 (Figure~\ref{fig:positivity}).} At $\varepsilon = 0$ the union-graph estimator
 returns $-0.0088$ [$-0.0090$, $-0.0086$] against a target of $+0.0269$, with an
@@ -414,6 +434,20 @@ enough to matter and small enough to be sampled; at $\varepsilon = 0$ and
 $\varepsilon \ge 10^{-2}$ clipping is a no-op. The proposed decomposition
 recovers its estimand at every $\varepsilon$, with analyst-interval coverage
 between $93\%$ and $100\%$.
+
+\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig3_retrain.pdf}
+\caption{Update rules after deployment (Experiment C), S3 operating point. Top row:
+fixed alert threshold; bottom row: original alert rate held on independent
+calibration patients. The first three columns share one vertical scale:
+expected events averted against standard care on the same evaluation
+population, for a homogeneous effect, a heterogeneous effect ($\kappa=2$) and a
+misspecified score class. Right column: what monitoring sees for naive
+refitting under a homogeneous effect, observed AUROC in the deployed
+population (top, in antiphase with the benefit) and mean score minus mean
+untreated risk (bottom, the calibration loss the rate-held threshold hides).
+Fifty independent seeds per setting, eight rounds, matched draws across rules
+within a seed; bands are 95\% bootstrap intervals of the across-seed mean.
+The dashed line is standard care.}\label{fig:retrain}\end{figure*}
 
 \paragraph{F3: acting on the misattribution (Figure~\ref{fig:retrain}).}
 A team that reads the monitor's attribution as outcome-mechanism drift refits
@@ -462,6 +496,16 @@ clinician's treatment decision.
 
 \input{tables/e1_decision}
 
+\begin{figure}[t]\centering\includegraphics[width=\columnwidth]{figures/fig6_decision.pdf}
+\caption{Keep-or-refit rules. Events averted against standard care in the
+window after the decision, by scenario, under the fixed alert threshold (top)
+and the rate-held threshold (bottom). Points are means over 200 independent
+replicates per scenario, with 95\% bootstrap intervals over replicates (most
+are smaller than the markers). Open square: refit when the
+exogenous share exceeds one half); filled square: refit when the
+outcome-mechanism share exceeds one half; diamond: the same rule driven by the
+monitor without action logs.}\label{fig:decision}\end{figure}
+
 \paragraph{F4: attribution-guided refitting (Table~\ref{tab:decision},
 Figure~\ref{fig:decision}).} Does the attribution improve the refit decision?
 After the monitoring window of each scenario a rule keeps or naively refits
@@ -469,7 +513,7 @@ the score, and we count events in the next window, in which alerts are acted
 upon and the exogenous state of the monitoring window persists; in S1 and S2
 the score ran silently during monitoring. Each scenario has its own seed block
 of 200 replicates, and the rules share draws within a replicate. Always
-refitting loses $11.5$ points in S3 and in S4. The task rule, refit when the
+refitting loses $11.5$ points in S3 and in S4. The exogenous-share rule, refit when the
 proposed decomposition assigns more than half of the change to exogenous
 mechanisms, never refits in S3, keeps the gain of refitting in S2 ($16.8$
 against $12.6$ points for keeping) and refits in $8\%$ of S4 replicates. It
@@ -492,6 +536,14 @@ the outcome shift without absorbing any treatment. Harm-weighted versions
 leave the ranking unchanged for harms up to $0.2$ events per unnecessary
 treatment (Appendix~\ref{app:decision}).
 
+\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig4_triage.pdf}
+\caption{Deployment-caused covariate shift (triage), 30 independent
+replicates per triage level. Left: attribution to $P(X)$ by the oracle Shapley
+target, the monitor and the proposed $X$ term, for a deployment-only and a
+mixed shift, with 95\% bootstrap bands of the mean. Right: retrospective and
+prospective policy contrasts (oracle) and the randomised-arm estimate with
+95\% bootstrap intervals.}\label{fig:triage}\end{figure*}
+
 \paragraph{F5: deployment also moves the patient mix
 (Figure~\ref{fig:triage}).} Adding a triage effect, a covariate shift caused by
 deployment itself, violates the independent-shift clause of Zhang et al.'s
@@ -508,7 +560,7 @@ prospective one at every triage level (largest gap $0.0009$, every 95\% interval
 separate exogenous from deployment-caused mix shift, because both arms draw
 from the post-deployment referral stream. A site rollout supplies undeployed
 comparisons if site identities and rollout dates are recorded. In a stepped
-wedge with persistent sites (E5: 48 sites, six periods, 200 independent
+wedge with persistent sites (48 sites, six periods, 200 independent
 seeds per setting; Table~\ref{tab:sites}), a crossover difference in
 differences recovers the retrospective term when rollout order is random (bias
 $-0.2\%$ [$-1.3$, $0.9$] with common covariate trends, $-0.7\%$ [$-1.7$, $0.4$]
@@ -525,6 +577,12 @@ not give parallel loss trends. With site-specific trends the covariate-mean
 split is biased as well ($+16.5\%$ induced, $-36.5\%$ exogenous). Random
 rollout order, not site-level rollout as such, identifies the split
 (Section~\ref{sec:ident}; Appendix~\ref{app:sites}).
+
+\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig5_utility.pdf}
+\caption{Observed AUROC, events averted, and standard versus counterfactual
+net benefit across clinician adherence and treatment effect $\theta$, S3
+operating point otherwise. Means over 20 independent replicates per cell;
+95\% bootstrap bands of the mean are mostly narrower than the lines.}\label{fig:utility}\end{figure*}
 
 \paragraph{F6: discrimination and utility move in opposite directions
 (Figure~\ref{fig:utility}).} Across treatment effect and adherence, observed
@@ -553,7 +611,19 @@ hump-shaped and falls to zero at high scores, where standard care already
 treats nearly every flagged patient; the effect of treatment against no
 treatment among the alerted ($-0.405$) is not the policy contrast.
 
-\paragraph{F7: semi-synthetic MIMIC-IV (E6; Figure~\ref{fig:mimic}).} To check
+\begin{figure*}[t]\centering
+\IfFileExists{figures/fig7_mimic.pdf}{\includegraphics[width=\textwidth]{figures/fig7_mimic.pdf}}{\fbox{\parbox{0.9\textwidth}{\centering Figure 7 is produced by \texttt{sim2/exp\_E6\_mimic.py} on credentialed MIMIC-IV data.}}}
+\caption{Semi-synthetic MIMIC-IV. Real covariates and outcomes; simulated
+deployment, clinician response, treatment effect and randomised arm (listed
+in the text). Left: attribution of the Brier-score change when only the
+deployment changes (early period before and after) and with real drift
+between periods; dashed and dotted lines mark the policy and exogenous
+targets. Right: events averted against historical care by four update rules
+under the fixed threshold. Points are means over 200 (left) and 50 (right)
+replicates that resample patients and redraw the simulated components; bars
+and bands are 95\% bootstrap intervals over replicates.}\label{fig:mimic}\end{figure*}
+
+\paragraph{F7: semi-synthetic MIMIC-IV (Figure~\ref{fig:mimic}).} To check
 that the misattribution does not depend on the synthetic covariate and
 outcome model, we repeat Experiments A and C on a ward-deterioration cohort
 from MIMIC-IV~\citep{johnson2023mimic}. The experiment is semi-synthetic.
@@ -580,69 +650,6 @@ term and its randomised-arm estimate, the monitor's outcome term, the
 union-graph estimate, and the round-by-round events averted of the four
 update rules.}
 
-\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig1_attribution.pdf}
-\caption{Attribution of the Brier-score change under S3 and S4: two oracle
-references (open markers: Shapley game; filled: policy-contrast estimand) and
-four estimators. Points are means over 100 independent replicates
-($n = 20{,}000$ per environment); thick bars are 95\% bootstrap intervals of
-the mean, thin light bars the central 95\% of single replicates, i.e. the
-range one analyst's estimate can fall in. The monitor has no policy player.
-Dashed line: total change.}\label{fig:attr}\end{figure*}
-\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig2_positivity.pdf}
-\caption{The positivity continuum, S3 operating point. Left: policy
-contribution by estimator as the pre-deployment treatment probability
-$\varepsilon$ in the alert-only region varies; means over 30 independent
-replicates per $\varepsilon$ with 95\% bootstrap intervals of the mean.
-Middle: effective sample size of the policy weights. Right: at
-$\varepsilon = 0$, the union-graph estimate against its target as $n$ grows
-(10 independent replicates per $n$); bars are the median 95\% patient-level
-bootstrap interval an analyst would report, which narrows around a value of
-the wrong sign.}\label{fig:positivity}\end{figure*}
-\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig3_retrain.pdf}
-\caption{Update rules after deployment (E3), S3 operating point. Top row:
-fixed alert threshold; bottom row: original alert rate held on independent
-calibration patients. The first three columns share one vertical scale:
-expected events averted against standard care on the same evaluation
-population, for a homogeneous effect, a heterogeneous effect ($\kappa=2$) and a
-misspecified score class. Right column: what monitoring sees for naive
-refitting under a homogeneous effect, observed AUROC in the deployed
-population (top, in antiphase with the benefit) and mean score minus mean
-untreated risk (bottom, the calibration loss the rate-held threshold hides).
-Fifty independent seeds per setting, eight rounds, matched draws across rules
-within a seed; bands are 95\% bootstrap intervals of the across-seed mean.
-The dashed line is standard care.}\label{fig:retrain}\end{figure*}
-\begin{figure}[t]\centering\includegraphics[width=\columnwidth]{figures/fig6_decision.pdf}
-\caption{Keep-or-refit rules (E1). Events averted against standard care in the
-window after the decision, by scenario, under the fixed alert threshold (top)
-and the rate-held threshold (bottom). Points are means over 200 independent
-replicates per scenario, with 95\% bootstrap intervals over replicates (most
-are smaller than the markers). Open square: the task rule (refit when the
-exogenous share exceeds one half); filled square: refit when the
-outcome-mechanism share exceeds one half; diamond: the same rule driven by the
-monitor without action logs.}\label{fig:decision}\end{figure}
-\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig4_triage.pdf}
-\caption{Deployment-caused covariate shift (triage), 30 independent
-replicates per triage level. Left: attribution to $P(X)$ by the oracle Shapley
-target, the monitor and the proposed $X$ term, for a deployment-only and a
-mixed shift, with 95\% bootstrap bands of the mean. Right: retrospective and
-prospective policy contrasts (oracle) and the randomised-arm estimate with
-95\% bootstrap intervals.}\label{fig:triage}\end{figure*}
-\begin{figure*}[t]\centering\includegraphics[width=\textwidth]{figures/fig5_utility.pdf}
-\caption{Observed AUROC, events averted, and standard versus counterfactual
-net benefit across clinician adherence and treatment effect $\theta$, S3
-operating point otherwise. Means over 20 independent replicates per cell;
-95\% bootstrap bands of the mean are mostly narrower than the lines.}\label{fig:utility}\end{figure*}
-\begin{figure*}[t]\centering
-\IfFileExists{figures/fig7_mimic.pdf}{\includegraphics[width=\textwidth]{figures/fig7_mimic.pdf}}{\fbox{\parbox{0.9\textwidth}{\centering Figure 7 is produced by \texttt{sim2/exp\_E6\_mimic.py} on credentialed MIMIC-IV data.}}}
-\caption{Semi-synthetic MIMIC-IV (E6). Real covariates and outcomes; simulated
-deployment, clinician response, treatment effect and randomised arm (listed
-in the text). Left: attribution of the Brier-score change when only the
-deployment changes (early period before and after) and with real drift
-between periods; dashed and dotted lines mark the policy and exogenous
-targets. Right: events averted against historical care by four update rules
-under the fixed threshold. Points are means over 200 (left) and 50 (right)
-replicates that resample patients and redraw the simulated components; bars
-and bands are 95\% bootstrap intervals over replicates.}\label{fig:mimic}\end{figure*}
 
 \section{Related work}
 \label{sec:related}
@@ -694,7 +701,7 @@ evaluation of patient outcomes.
 \label{app:rd}
 \todo{Figure and text for the RD experiment (merged\_expE): local jump, effect curve, bounds; ITT scale; dilution by treated suspicious patients below the threshold.}
 
-\section{Robustness of Experiments A and B (E4)}
+\section{Robustness of Experiments A and B}
 \label{app:robustness}
 The deployed score remains logistic-linear. Additional covariates enter the
 linear score, and in the misspecified cells the true outcome logit also includes
@@ -709,7 +716,7 @@ change is booked to the marginal outcome mechanism. F2 also survives: the
 $\varepsilon=0$ union-graph bias remains between $-0.036$ and $-0.040$ as
 sample size rises from $6{,}000$ to $96{,}000$; the full independent-seed
 sweeps and all S1--S4 results are in \texttt{merged\_expAB\_robustness.json}.
-F3 under a misspecified score class is part of E3 (Appendix~\ref{app:retrain}).
+F3 under a misspecified score class is covered by Experiment C (Appendix~\ref{app:retrain}).
 
 \paragraph{Prevalence.} The calibrated operating point has an untreated event
 rate near $40\%$, so alerted patients mostly have predicted risk above $0.5$
@@ -723,14 +730,14 @@ realistic ward-deterioration prevalence a successful alert shows up as an
 apparent improvement of the outcome mechanism, not as a drop.
 
 \input{tables/prevalence}
-Table~\ref{tab:prevalence-est} repeats Experiment A and E1 with estimators at an
+Table~\ref{tab:prevalence-est} repeats Experiment A and the keep-or-refit rules with estimators at an
 untreated event rate of $6.6\%$ (alert rate $20\%$). Under S3 the monitor
 books $-0.0065$ [$-0.0068$, $-0.0062$] to $P(Y \mid X)$, and its interval
 covers the policy-contrast outcome term, zero, in $2\%$ of replicates; the
 randomised arm recovers the policy term with $96\%$ coverage. Under S4 the
 policy term ($-0.0178$) offsets most of the outcome-mechanism shift
 ($+0.0242$): the monitor books $+0.0098$ [$+0.0094$, $+0.0103$] to
-$P(Y \mid X)$, so a successful alert hides a real deterioration. In E1 the
+$P(Y \mid X)$, so a successful alert hides a real deterioration. Among the keep-or-refit rules the
 monitor-driven outcome rule refits in every S3 replicate and keeps $0.02$ of
 the $0.91$ points that keeping the score retains; the outcome-share rule
 loses $0.55$ points in S4, where the oracle outcome share ($0.52$) sits at the
@@ -739,9 +746,9 @@ naive refitting in S1 and S3 and beats both in S2 and S4.
 
 \input{tables/prevalence_estimators}
 
-\section{Persistent-site stepped wedge (E5)}
+\section{Persistent-site stepped wedge}
 \label{app:sites}
-Experiment E5 follows 48 sites for six periods. Four cohorts of 12 sites cross
+The site-rollout experiment follows 48 sites for six periods. Four cohorts of 12 sites cross
 at periods 2--5; the period-5 cohort supplies not-yet-deployed controls for the
 three earlier crossovers. A fixed site characteristic $z$ shifts the site's
 covariate mean by $0.5z$ and its outcome logit by $0.4z$. Rollout priority is
@@ -774,7 +781,7 @@ unbiased in the linked, site-specific cell. These results concern the
 crossover cohorts with a not-yet-deployed comparison; the last cohort's effect
 is not identified without an additional period or assumption.
 
-\section{Update rules after deployment (E3)}
+\section{Update rules after deployment (Experiment C)}
 \label{app:retrain}
 Each seed draws an evaluation population and an independent calibration
 population of $20{,}000$ patients, and in each round a training sample of
@@ -784,7 +791,7 @@ of 50 seeds. Events are expected values on the evaluation population, without
 outcome noise, against standard care on the same population. The
 heterogeneous effect is $\theta + \kappa (X_2 - X_1)/\sqrt{2}$ on the logit
 scale; at $\kappa = 2$ the action is harmful for about $11\%$ of patients. The
-misspecified truth adds the E4 term $0.65\{X_1X_2 + 0.3(X_2^2 - 1)\}$ to the
+misspecified truth adds the term of Appendix~\ref{app:robustness}, $0.65\{X_1X_2 + 0.3(X_2^2 - 1)\}$ to the
 untreated logit; there the original score is the population-best logistic
 approximation to the untreated risk, so a correct and stable update
 reproduces it. The weighted refit uses $1/P(A = 0 \mid X)$ from the alert rule
@@ -800,7 +807,7 @@ and $-2.65$ [$-2.71$, $-2.59$] rate-held, both at $\kappa = 2$; conditioning
 with main effects minus keep, $-2.35$ [$-2.45$, $-2.26$] (fixed, $\kappa = 2$);
 weighted refit minus keep, $+0.06$ [$-0.04$, $+0.15$] (fixed, misspecified).
 
-\section{Decision rules (E1)}
+\section{Keep-or-refit decisions}
 \label{app:decision}
 Each replicate draws pre-deployment and monitoring-window samples of $20{,}000$
 patients (the monitoring window of S3 and S4 includes the $30\%$ randomised
@@ -813,7 +820,7 @@ driven by the oracle it also refits in S1.
 
 \input{tables/e1_decision_appendix}
 
-\section{Intervals, coverage and harm (E7)}
+\section{Intervals, coverage and harm}
 \label{app:intervals}
 The numbers for Experiments A, B, D, E and F in Section~\ref{sec:sim} come
 from a rerun with one seed block per row that stores every replicate
@@ -830,12 +837,12 @@ randomised arm). The proposed decomposition's intervals cover its own estimand i
 \emph{Harm for unnecessary treatment.} Events averted count only benefit.
 Charging each extra treatment given to a patient whose untreated outcome is 0
 a harm of $h$ events gives the net figures of Table~\ref{tab:harm}.
-At the S3 operating point with adherence $0.85$ the alert policy averts $11.50$ points; with $h = 0.05$, $0.1$ and $0.2$ the net figures are $11.03$, $10.56$ and $9.63$. The E3 comparison is unchanged by the penalty (naive refitting's net benefit stays near zero while keeping the score loses the same fraction as the policy). The same penalty leaves the E1 ranking unchanged for
+At the S3 operating point with adherence $0.85$ the alert policy averts $11.50$ points; with $h = 0.05$, $0.1$ and $0.2$ the net figures are $11.03$, $10.56$ and $9.63$. The update-rule comparison is unchanged by the penalty (naive refitting's net benefit stays near zero while keeping the score loses the same fraction as the policy). The same penalty leaves the ranking of keep-or-refit rules unchanged for
 $h \le 0.2$ (Table~\ref{tab:decision-app}).
 
 \input{tables/e7_harm}
 
-\section{Semi-synthetic MIMIC-IV experiment (E6)}
+\section{Semi-synthetic MIMIC-IV experiment}
 \label{app:mimic}
 \emph{Cohort.} Adult ward inpatients in MIMIC-IV~\citep{johnson2023mimic}.
 One prediction time per admission, drawn at random among creatinine draws
