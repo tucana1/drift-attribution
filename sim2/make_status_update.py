@@ -53,7 +53,7 @@ plt.rcParams.update({
 })
 
 FIGSIZE = (10, 5.625)                # 2000 x 1125 px at 200 dpi
-CAPTIONS: list[tuple[str, str, str]] = []
+CAPTIONS: list[tuple[str, str]] = []
 
 
 def load(name):
@@ -244,11 +244,9 @@ def figure_workflow():
                        "are simulated.", fontsize=9, color=MUTED, ha="right")
     save(fig, "01_workflow.png")
     CAPTIONS.append((
-        "01_workflow.png", "Where the project stands",
-        "How the work flows, from data to paper. Green is done, half yellow is partly done, red is missing. All "
-        "the simulation work is done. The one missing piece is MIMIC-IV, a large set of real hospital records: "
-        "someone with approved access has to run our script on their own computer. Until then, a public ICU "
-        f"dataset ({stand_in:,} stays) stands in for it."))
+        "01_workflow.png",
+        "All the simulation work is done; the one missing piece (red) is the MIMIC-IV run, which needs someone "
+        "with approved access to the data to run our script on their own computer."))
 
 
 # ----------------------------------------------------------------------------- 2 and 8 attribution bars
@@ -340,13 +338,9 @@ def figure_attribution():
         "per period · thin lines: 95% intervals",
         "change in prediction error (Brier score)", 3, 0.002, 0.01)
     CAPTIONS.append((
-        "02_attribution.png", "Standard monitoring blames the wrong cause",
-        "In a simulated hospital we know exactly what changed. On the left, the only change is that clinicians "
-        "act on the alerts. That alone changes the model's prediction error, because treated patients no longer "
-        "have the outcomes the model predicted for them. Standard monitoring can't see the alert, so it blames "
-        "a change in patients' underlying risk. Our method holds the alert back for a random group of patients, "
-        "compares, and correctly blames the alert. On the right, several things change at once, and our method "
-        "still gets each part right."))
+        "02_attribution.png",
+        "In a simulated hospital where the only change is clinicians acting on the alert, standard monitoring "
+        "blames a change in patients' risk, while our method correctly blames the alert."))
 
 
 def figure_real_covariates():
@@ -374,11 +368,9 @@ def figure_real_covariates():
     for truth, mon, pro, _ in rows.values():
         assert truth[0] < 0 and mon[1] < 0 and pro[0] < 0, "the captions describe this pattern"
     CAPTIONS.append((
-        "08_real_covariates.png", "The same mistake on real patient data",
-        "We repeated the test on real ICU patients from two hospitals (a public sepsis dataset), simulating only "
-        "the alert and its effect. Here the alert lowers prediction error at both hospitals. Standard monitoring "
-        "credits that to lower underlying risk; our method correctly credits the alert. This stands in for the "
-        "MIMIC-IV run until that is done."))
+        "08_real_covariates.png",
+        "On real ICU patients from two hospitals (a public stand-in until the MIMIC-IV run), standard monitoring "
+        "again mistakes the alert's effect for a change in risk, while our method gets it right."))
 
 
 # ----------------------------------------------------------------------------- 3 more data
@@ -386,7 +378,6 @@ def figure_more_data():
     B = load("merged_expE7.json")["B"]
     ns = B["n_scaling"]["summary"]
     target = ns[0]["truth_shapley_pi"]
-    e0 = next(r for r in B["summary"] if r["eps"] == 0)
     n = np.array([r["n"] for r in ns])
     m = np.array([r["union3_raw_pi"]["mean"] for r in ns])
     lo = np.array([r["analyst_ci95_median"][0] for r in ns])
@@ -437,12 +428,10 @@ def figure_more_data():
     save(fig, "03_more_data.png")
     assert m.max() < 0 < target and covered == 0, "the caption describes this pattern"
     CAPTIONS.append((
-        "03_more_data.png", "More data doesn't fix it",
-        "The usual correction uses treatment records to work out what the alert itself did. It fails when, "
-        "before the alert existed, patients like the ones it now flags were never treated. It then gets even "
-        f"the direction wrong: it says the alert lowered prediction error ({fmt(m.mean())}) when it raised it "
-        f"({fmt(target)}). With {n[-1] // n[0]} times more patients its error bars shrink, but around the wrong "
-        f"answer. Our method gets it right ({fmt(e0['E3_rollout_pi']['mean'])})."))
+        "03_more_data.png",
+        "When the patients the alert flags were never treated before it existed, the usual correction gets the "
+        f"alert's effect backwards ({fmt(m.mean())} instead of {fmt(target)}), and more data only makes it more "
+        "confident."))
 
 
 # ----------------------------------------------------------------------------- 4 retraining
@@ -495,13 +484,9 @@ def figure_retraining():
            "fixed; 95% intervals are narrower than the markers")
     save(fig, "04_retraining.png")
     CAPTIONS.append((
-        "04_retraining.png", "Retraining backfires",
-        "When accuracy changes, a common response is to retrain the model on recent data. But the flagged "
-        "patients were treated and did fine, so the retrained model learns that they are low risk and stops "
-        "flagging them. The benefit then collapses every other round "
-        f"({naive[0]:.1f} → {naive[1]:.1f} → {naive[2]:.1f} → {naive[3]:.1f} bad outcomes prevented per 100 "
-        "patients), and the accuracy score looks best in exactly the rounds where the alert helps no one. "
-        "Retraining only on untreated patients, with a statistical correction, keeps the benefit."))
+        "04_retraining.png",
+        "Retraining on recent data teaches the model that treated patients are low risk, so the alert keeps "
+        "switching off and on, and the accuracy score looks best exactly when the alert helps no one."))
 
 
 # ----------------------------------------------------------------------------- 5 refit rules
@@ -545,13 +530,9 @@ def figure_refit_rules():
     assert worst["outcome_proposed"] < 0.05 and worst["outcome_monitor"] > 0.95 * worst["always"], \
         "the caption describes this pattern"
     CAPTIONS.append((
-        "05_refit_rules.png", "Knowing the cause tells you when to retrain",
-        "After monitoring for a while, should the hospital keep the model or retrain it? We scored each "
-        "decision rule by the extra bad outcomes it causes compared with the better choice. Retraining only "
-        "when our method says the underlying risk changed caused none in any of the four situations we tested. "
-        f"The same rule using standard monitoring causes up to {worst['outcome_monitor']:.1f} extra bad outcomes "
-        "per 100 patients, about as many as always retraining, because it mistakes the alert's effect for a "
-        "change in risk."))
+        "05_refit_rules.png",
+        "Deciding when to retrain with our method never cost extra bad outcomes in our tests, while the same rule "
+        f"using standard monitoring cost up to {worst['outcome_monitor']:.1f} extra per 100 patients."))
 
 
 # ----------------------------------------------------------------------------- 6 auroc vs benefit
@@ -592,11 +573,9 @@ def figure_auroc_vs_benefit():
     save(fig, "06_auroc_vs_benefit.png")
     assert all(np.diff(au) < 0) and all(np.diff(av) > 0), "the caption describes this pattern"
     CAPTIONS.append((
-        "06_auroc_vs_benefit.png", "A drop in accuracy can mean the alert is working",
-        f"The more often clinicians act on alerts, the more bad outcomes are prevented (from {av[0]:.1f} to "
-        f"{av[-1]:.1f} per 100 patients) and the lower the model's measured accuracy (AUROC from {au[0]:.2f} to "
-        f"{au[-1]:.2f}). So a falling accuracy score after launch is not, on its own, a sign that something is "
-        "wrong."))
+        "06_auroc_vs_benefit.png",
+        "The more often clinicians act on alerts, the more bad outcomes are prevented and the lower the model's "
+        "measured accuracy, so falling accuracy after launch can mean the alert is working."))
 
 
 # ----------------------------------------------------------------------------- 7 prevalence
@@ -638,12 +617,10 @@ def figure_prevalence():
            f"{P['parameters']['n']:,} simulated patients")
     save(fig, "07_prevalence.png")
     CAPTIONS.append((
-        "07_prevalence.png", "When the outcome is uncommon, a working alert looks like an improvement",
-        f"If the bad outcome is common ({100 * rate[0]:.0f}% of patients), a working alert makes prediction "
-        "error go up, which looks like the model getting worse. At rates closer to real hospital wards "
-        f"({100 * rate[2]:.0f}% and {100 * rate[3]:.0f}%), error goes down instead, which looks like patients "
-        "getting healthier. Either way, standard monitoring blames a change in risk. Open decision for the "
-        "team: the paper's introduction currently assumes performance drops after launch."))
+        "07_prevalence.png",
+        f"When the bad outcome is uncommon ({100 * rate[3]:.0f} to {100 * rate[2]:.0f}% of patients, as on real "
+        "wards), a working alert lowers prediction error, which standard monitoring reads as patients' risk going "
+        "down."))
 
 
 # ----------------------------------------------------------------------------- captions
@@ -653,21 +630,16 @@ def write_captions():
              "Figures for the team channel, generated by `python3 sim2/make_status_update.py` from the result "
              "files in `figures/` (every number below is read from those files).", "",
              "## Post", "",
-             "**What the project is about.** Hospitals use AI models that flag patients at risk, for example of "
-             "sepsis. When a flag works, clinicians treat the patient and the bad outcome often doesn't happen. "
-             "The model's prediction then looks wrong, so its measured accuracy changes even though nothing is "
-             "broken. Monitoring tools try to explain such changes, and we show they blame the wrong cause: they "
-             "read the alert's success as a change in patients' underlying risk. Our method gets the cause right "
-             "by holding the alert back for a randomly chosen group of patients and comparing.",
+             "When clinicians act on a hospital AI alert, the model's measured accuracy changes even though nothing "
+             "is broken, and we show that standard monitoring blames the wrong cause, while our method gets it right "
+             "by holding the alert back for a random group of patients.",
              "",
-             "**Where we are.** All the simulation experiments are done, and every result can be regenerated "
-             "with one command. The one missing piece is a run on MIMIC-IV, a large set of real hospital "
-             "records. Someone with approved PhysioNet access needs to run `sim2/run_e6.sh all <username>` on "
-             "their own computer, since the data can't be shared. It downloads about 3 GB, the main run takes "
-             "20 to 40 minutes, and it saves only summary numbers. Figures below, one caption each.",
+             "All the simulation experiments are done; the one missing piece is MIMIC-IV, real hospital records that "
+             "someone with approved PhysioNet access needs to run through `sim2/run_e6.sh all <username>` on their "
+             "own computer (about 3 GB to download, 20 to 40 minutes to run, and only summary numbers are saved).",
              "", "## Captions", ""]
-    for name, title, text in order:
-        lines += [f"**{name[:2]}. {title}** (`{name}`)", "", text, ""]
+    for name, text in order:
+        lines += [f"`{name}`", "", text, ""]
     (OUT / "README.md").write_text("\n".join(lines))
     print("wrote docs/status_update/README.md")
 
