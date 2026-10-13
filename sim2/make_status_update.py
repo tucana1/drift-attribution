@@ -144,32 +144,35 @@ def arrow(ax, p0, p1, color=MUTED, dashed=False, lw=1.4, rad=0.0):
 def figure_workflow():
     stand_in = load("e6_open/merged_expE6_sepsis2019_AtoB.json")["cohort"]["admissions"]
     todo = (ROOT / "aaai/drift_attribution_aaai.tex").read_text().count("\\todo{")
-    fig = plt.figure(figsize=(13.333, 7.5))
+    fig = plt.figure(figsize=(13.333, 7.85))
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 56.25)
+    ax.set_ylim(0, 58.875)
     ax.set_aspect("equal")
     ax.axis("off")
 
-    ax.text(2, 54.4, "Drift attribution: where the project stands", fontsize=21, fontweight="bold",
+    ax.text(2, 57.0, "Drift attribution: where the project stands", fontsize=21, fontweight="bold",
             color=INK, va="top")
-    ax.text(2, 50.9, f"{DATE}.  The simulation side runs end to end and reproduces from saved files.  "
-                     "One input is still missing: MIMIC-IV.", fontsize=12.5, color=INK2, va="top")
+    ax.text(2, 53.5, "The question: when clinicians act on a hospital AI alert, the model's measured accuracy changes. "
+                     "Does monitoring blame the right cause?\n"
+                     f"Status on {DATE}: all the simulation work is done and reproducible. "
+                     "Still missing: MIMIC-IV, the real hospital data.",
+            fontsize=12.5, color=INK2, va="top", linespacing=1.45)
     for x, status, label in ((70.5, "done", "Done"), (78.2, "partial", "Partly done"),
                              (88.2, "missing", "Missing or blocked")):
-        badge(ax, x, 54.0, status, r=0.8)
-        ax.text(x + 1.5, 54.0, label, fontsize=10.5, color=INK2, va="center")
-    for x, label in ((2, "INPUTS"), (26, "EXPERIMENTS"), (57, "OUTPUTS"), (80, "PAPER")):
+        badge(ax, x, 56.6, status, r=0.8)
+        ax.text(x + 1.5, 56.6, label, fontsize=10.5, color=INK2, va="center")
+    for x, label in ((2, "DATA"), (26, "EXPERIMENTS"), (57, "RESULTS"), (80, "PAPER")):
         ax.text(x, 47.6, label, fontsize=10, fontweight="bold", color=MUTED, va="center")
 
     # inputs
     node(ax, 2, 24.9, 19, 7.4, "Simulated hospital",
-         ("one calibrated operating point", "sim2/dgp.py, sim2/merged.py"))
-    node(ax, 2, 12.0, 19, 7.4, "Open stand-in data",
+         ("the true answer is known, so", "each method can be checked"))
+    node(ax, 2, 12.0, 19, 7.4, "Public ICU data",
          ("PhysioNet 2019 sepsis challenge,", f"2 hospitals, {stand_in:,} ICU stays"))
-    mimic = node(ax, 2, 0.9, 19, 9.0, "MIMIC-IV data", ("ward cohort; needs credentialed",
-                                                         "PhysioNet access, runs locally:",
-                                                         "sim2/run_e6.sh (tested on demo)"),
+    mimic = node(ax, 2, 0.9, 19, 9.0, "MIMIC-IV data", ("real hospital records; needs",
+                                                         "approved access, must run on",
+                                                         "our own computers; script ready"),
                  status="missing", alert=True)
     fig.canvas.draw()
     right = mimic.get_window_extent(fig.canvas.get_renderer()).transformed(ax.transData.inverted()).x1
@@ -181,12 +184,12 @@ def figure_workflow():
             va="center", zorder=5)
 
     # experiments
-    boxes = (("Attribution and positivity", "A, B · E7", "monitor vs our decomposition, 95% intervals", "done"),
-             ("Update rules after deployment", "C · E3", "7 refit rules, fixed vs rate-held threshold", "done"),
-             ("Keep-or-refit decision", "E1", "does attribution improve the refit call?", "done"),
-             ("Triage and site rollout", "F · E5", "deployment-caused mix shift, 48-site wedge", "done"),
-             ("Robustness and prevalence", "E4", "10 and 20 covariates; event rates 7% to 40%", "done"),
-             ("Real-data check", "E6", "open stand-in done; MIMIC-IV run blocked", "partial"))
+    boxes = (("Which cause gets the blame?", "A, B · E7", "standard monitoring vs our method", "done"),
+             ("Retraining after launch", "C · E3", "7 ways to retrain the model, compared", "done"),
+             ("Keep or retrain?", "E1", "does knowing the cause help decide?", "done"),
+             ("Triage and staged rollout", "F · E5", "alert changes who is seen; 48 sites", "done"),
+             ("Stress tests", "E4", "more variables; outcome rates 7% to 40%", "done"),
+             ("Real hospital data", "E6", "public data done; MIMIC-IV run blocked", "partial"))
     centers = []
     for i, (title, tag, detail, status) in enumerate(boxes):
         top = 46.0 - 7.2 * i
@@ -208,11 +211,11 @@ def figure_workflow():
     arrow(ax, (55.0, 40.5), (56.9, 40.5))
 
     # outputs
-    node(ax, 57, 37.0, 20, 7.4, "Result files", ("figures/*.json, one script per file", "full rerun reproduces them"),
+    node(ax, 57, 37.0, 20, 7.4, "Saved results", ("one script per result file;", "reruns give the same numbers"),
          tag="R1, R2")
-    node(ax, 57, 23.6, 20, 7.4, "Figures and tables", ("one command each, rebuilt", "byte-identical from the files"),
+    node(ax, 57, 23.6, 20, 7.4, "Figures and tables", ("rebuilt with one command,", "identical every time"),
          tag="R4")
-    node(ax, 57, 10.2, 20, 7.4, "Validator", ("numbers quoted in the draft", "match the result files"))
+    node(ax, 57, 10.2, 20, 7.4, "Automatic checks", ("every number in the draft", "matches the saved results"))
     arrow(ax, (67, 37.0), (67, 31.1))
     arrow(ax, (67, 23.6), (67, 17.7))
 
@@ -222,12 +225,12 @@ def figure_workflow():
                                 edgecolor=AXIS, lw=1.0, zorder=2))
     ax.text(x0 + 1.2, y0 + h - 1.7, "Draft paper", fontsize=12, fontweight="bold", color=INK, va="center")
     ax.text(x0 + 1.2, y0 + h - 3.7, "AAAI-27 workshop, due about 20 Nov", fontsize=10, color=INK2, va="center")
-    items = (("done", ["Results F1 to F6 written, every", "number with a 95% interval"]),
-             ("done", ["Existing references in the", "bibliography checked (L3)"]),
-             ("missing", ["F7 and Figure 7 wait on", "the MIMIC-IV run"]),
-             ("partial", ["Still to write: abstract, intro,", "formal sections and proofs,",
-                          "related work, responsible use"]),
-             ("partial", ["Still to cite: Boeken 2024,", "Feng 2024, the L2 references"]))
+    items = (("done", ["Results section written: 6 of", "7 findings, all with error bars"]),
+             ("done", ["Existing references checked"]),
+             ("missing", ["Finding 7 (real hospital data)", "waits on the MIMIC-IV run"]),
+             ("partial", ["Still to write: abstract, intro,", "theory and proofs, related",
+                          "work, responsible use"]),
+             ("partial", ["A few references still to add"]))
     y = y0 + h - 7.2
     for status, lines in items:
         badge(ax, x0 + 1.9, y, status, r=0.8)
@@ -237,21 +240,20 @@ def figure_workflow():
     ax.text(x0 + 1.2, y0 + 1.4, f"{todo} TODO notes left in the draft", fontsize=9.5, color=MUTED, va="center")
     arrow(ax, (77.0, 27.3), (79.9, 27.3))
     arrow(ax, (77.0, 13.9), (79.9, 13.9))
-    ax.text(97.5, 2.2, "Synthetic results use one calibrated operating point; the real-data rows simulate only "
-                       "the alert and its effect.", fontsize=9, color=MUTED, ha="right")
+    ax.text(97.5, 2.2, "All simulations use one hospital setup; with the public data, only the alert and its effect "
+                       "are simulated.", fontsize=9, color=MUTED, ha="right")
     save(fig, "01_workflow.png")
     CAPTIONS.append((
         "01_workflow.png", "Where the project stands",
-        "Everything on the simulation side runs end to end and regenerates from saved result files, and the "
-        "draft's numbers are checked against those files. The one missing input is MIMIC-IV (red): it needs a "
-        "credentialed PhysioNet account and has to run on a local machine. The pipeline for it is written and "
-        f"tested (`sim2/run_e6.sh`), and an open stand-in ({stand_in:,} ICU stays from the PhysioNet 2019 "
-        "challenge) is already done."))
+        "How the work flows, from data to paper. Green is done, half yellow is partly done, red is missing. All "
+        "the simulation work is done. The one missing piece is MIMIC-IV, a large set of real hospital records: "
+        "someone with approved access has to run our script on their own computer. Until then, a public ICU "
+        f"dataset ({stand_in:,} stays) stands in for it."))
 
 
 # ----------------------------------------------------------------------------- 2 and 8 attribution bars
-COMPONENTS = (("Alert policy", BLUE), ("Outcome mechanism", ORANGE), ("Patient mix", AQUA))
-METHODS = ("What actually\nchanged", "Monitor\n(no action log)", "Our decomposition\n(randomised arm)")
+COMPONENTS = (("The alert being acted on", BLUE), ("Underlying risk changed", ORANGE), ("Different patients", AQUA))
+METHODS = ("What really\nhappened", "Standard\nmonitoring", "Our method")
 
 
 def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, label_min, tick_step):
@@ -270,6 +272,9 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
     span = hi - lo
     # room for a value label beyond the bar end on each side that has labelled bars
     xlim = (lo - (0.24 if lo < -label_min / 2 else 0.03) * span, hi + (0.2 if hi > label_min / 2 else 0.12) * span)
+    # notes at zero go on the side of the axis with more room
+    side = 1 if hi >= -lo else -1
+    note = dict(va="center", ha="left" if side > 0 else "right", color=MUTED)
     pitch, thick = 0.27, 0.2
     for ax, (ptitle, rows, errs) in zip(axes, panels):
         ax.set_xlim(*xlim)
@@ -283,8 +288,8 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
                 y = g + (k - 1) * pitch
                 v, ci = row[k], err[k]
                 if v is None:
-                    ax.text(0.012 * span * (1 if hi > 0 else -1), y, "no policy term", fontsize=9.5,
-                            color=MUTED, style="italic", va="center", ha="left" if hi > 0 else "right")
+                    ax.text(0.012 * span * side, y, "doesn't consider the alert", fontsize=9.5, style="italic",
+                            **note)
                     continue
                 rounded_bar(ax, y, thick, v, color, horizontal=True)
                 if ci is not None:
@@ -294,8 +299,7 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
                     ax.text(tip + (0.015 if v > 0 else -0.015) * span, y, fmt(v, digits), va="center",
                             ha="left" if v > 0 else "right", fontsize=10, color=INK, zorder=5)
                 elif g == 0 and v == 0:
-                    ax.text(0.012 * span * (1 if hi > 0 else -1), y, "0", fontsize=9.5, color=MUTED,
-                            va="center", ha="left" if hi > 0 else "right")
+                    ax.text(0.012 * span * side, y, "0", fontsize=9.5, **note)
         ax.set_title(ptitle, fontsize=12, color=INK, loc="left", pad=8)
         ax.set_xlabel(xlabel)
         ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(tick_step))
@@ -315,7 +319,8 @@ def figure_attribution():
     A = E7["A"]
     reps = len([r for r in A["runs"] if r["scenario"] == "S3"])
     panels, out = [], {}
-    for sc, ptitle in (("S3", "Only the alert changed (S3)"), ("S4", "Alert plus covariate and outcome shift (S4)")):
+    for sc, ptitle in (("S3", "Only change: clinicians act on the alert"),
+                       ("S4", "Alert, plus different patients and changed risk")):
         ref, s = A["references"][sc], A["summary"][sc]
         truth = [ref["pc_pi"]["value"], ref["pc_Y"]["value"], ref["pc_X"]["value"]]
         mon = [None, s["naive2_est_Ygx"]["mean"], s["naive2_est_X"]["mean"]]
@@ -324,28 +329,29 @@ def figure_attribution():
                [s["E3_rollout_pi"]["ci95"], s["E3_rollout_Y"]["ci95"], s["E3_rollout_X"]["ci95"]]]
         panels.append((ptitle, [truth, mon, pro], err))
         out[sc] = (truth, mon, pro)
-    t3, m3, _ = out["S3"]
+    t3, m3, p3 = out["S3"]
+    assert t3[0] > 0 and m3[1] > 0.9 * t3[0] and p3[0] > 0.9 * t3[0], "the captions describe this pattern"
     attribution_chart(
         "02_attribution.png", panels,
-        "Without action logs, the alert's effect is booked as outcome drift",
-        f"Where each method puts the observed change in Brier score (higher = worse).  When only the alert "
-        f"changed, the\nmonitor books all of it ({fmt(m3[1])}) to the outcome mechanism; our decomposition puts it on "
-        "the alert policy.",
-        f"Source: figures/merged_expE7.json · simulation, {reps} replicates per scenario, n = {E7['parameters']['n']:,} per period "
-        "· thin lines: 95% intervals of the mean",
-        "change in Brier score", 3, 0.002, 0.01)
+        "Standard monitoring blames the wrong cause",
+        "In a simulated hospital we know what really happened. The bars show which cause each method blames for the"
+        "\nchange in the model's prediction error. Our method gets it right; standard monitoring does not.",
+        f"Source: figures/merged_expE7.json · {reps} simulated runs per panel, {E7['parameters']['n']:,} patients "
+        "per period · thin lines: 95% intervals",
+        "change in prediction error (Brier score)", 3, 0.002, 0.01)
     CAPTIONS.append((
-        "02_attribution.png", "Finding F1: the misattribution",
-        f"When the only change is that clinicians act on the alert (left), the Brier score rises by "
-        f"{fmt(t3[0])}. A monitor without action logs books all of it to the outcome mechanism; our "
-        "decomposition, using a randomised unalerted arm, assigns it to the alert policy. With covariate and "
-        "outcome shifts as well (right), the monitor's split is wrong in both terms, while ours matches what "
-        "actually changed."))
+        "02_attribution.png", "Standard monitoring blames the wrong cause",
+        "In a simulated hospital we know exactly what changed. On the left, the only change is that clinicians "
+        "act on the alerts. That alone changes the model's prediction error, because treated patients no longer "
+        "have the outcomes the model predicted for them. Standard monitoring can't see the alert, so it blames "
+        "a change in patients' underlying risk. Our method holds the alert back for a random group of patients, "
+        "compares, and correctly blames the alert. On the right, several things change at once, and our method "
+        "still gets each part right."))
 
 
 def figure_real_covariates():
     panels, rows = [], {}
-    for tag, ptitle in (("AtoB", "Hospital A, alert deployed"), ("BtoA", "Hospital B, alert deployed")):
+    for tag, ptitle in (("AtoB", "Hospital A"), ("BtoA", "Hospital B")):
         d = load(f"e6_open/merged_expE6_sepsis2019_{tag}.json")
         t, s = d["A"]["truth"]["deploy_only"], d["A"]["summary"]["deploy_only"]
         truth = [t["pi"], 0.0, 0.0]        # one hospital split at random: no real change in X or Y | X
@@ -358,22 +364,21 @@ def figure_real_covariates():
     ca = rows["AtoB"][3]
     attribution_chart(
         "08_real_covariates.png", panels,
-        "Same misattribution on real covariates (open stand-in, not MIMIC-IV)",
-        "PhysioNet 2019 sepsis challenge: real patients and outcomes; only the alert and its effect are simulated."
-        "\nAt these event rates the alert lowers the Brier score, and the monitor reports that as an outcome "
-        "improvement.",
-        f"Source: figures/e6_open/ · {ca['admissions']:,} ICU stays, event rate {100 * ca['event_rate_early']:.1f}% "
-        f"(A) and {100 * ca['event_rate_late']:.1f}% (B) · thin lines: 95% intervals over replicates",
-        "change in Brier score (lower = better)", 4, 0.0008, 0.001)
-    ta, ma, pa, _ = rows["AtoB"]
-    tb, mb, pb, _ = rows["BtoA"]
+        "The same mistake on real patient data (public stand-in for MIMIC-IV)",
+        "Real ICU patients and outcomes from two hospitals; only the alert and its effect are simulated.\nHere the "
+        "alert lowers prediction error, and standard monitoring credits that to lower underlying risk.",
+        f"Source: figures/e6_open/ · PhysioNet 2019 challenge, {ca['admissions']:,} ICU stays, sepsis in "
+        f"{100 * ca['event_rate_early']:.1f}% (A) and {100 * ca['event_rate_late']:.1f}% (B) · thin lines: 95% "
+        "intervals",
+        "change in prediction error (lower = better)", 4, 0.0008, 0.001)
+    for truth, mon, pro, _ in rows.values():
+        assert truth[0] < 0 and mon[1] < 0 and pro[0] < 0, "the captions describe this pattern"
     CAPTIONS.append((
-        "08_real_covariates.png", "Real covariates: open stand-in until MIMIC-IV",
-        "PhysioNet 2019 sepsis challenge data (two hospitals; real covariates and outcomes, the alert and its "
-        f"effect simulated). The alert lowers the Brier score by {fmt(-ta[0], 4, False)} at hospital A and "
-        f"{fmt(-tb[0], 4, False)} at B. The monitor books that to the outcome mechanism ({fmt(ma[1], 4)}, "
-        f"{fmt(mb[1], 4)}); our decomposition recovers it as the alert's effect ({fmt(pa[0], 4)}, "
-        f"{fmt(pb[0], 4)}). This stands in for the MIMIC-IV run; it does not replace it."))
+        "08_real_covariates.png", "The same mistake on real patient data",
+        "We repeated the test on real ICU patients from two hospitals (a public sepsis dataset), simulating only "
+        "the alert and its effect. Here the alert lowers prediction error at both hospitals. Standard monitoring "
+        "credits that to lower underlying risk; our method correctly credits the alert. This stands in for the "
+        "MIMIC-IV run until that is done."))
 
 
 # ----------------------------------------------------------------------------- 3 more data
@@ -398,10 +403,10 @@ def figure_more_data():
     ax.axhline(target, color=INK, lw=1.4, zorder=2)
     ax.text(16_000, target + 0.0012, f"true effect of the alert  {fmt(target)}", fontsize=10.5, color=INK, va="bottom")
     ax.plot(n, m, "o", color=BLUE, ms=8, mec=SURFACE, mew=2, zorder=4)
-    ax.text(16_000, m[0] - 0.0022, f"what the estimator reports  {fmt(m.mean())}", fontsize=10.5, color=INK,
-            va="top")
-    ax.set_title("Estimate against the true effect", fontsize=12, color=INK, loc="left", pad=8)
-    ax.set_ylabel("effect of the alert on the Brier score")
+    ax.text(16_000, m[0] - 0.0022, f"what the usual correction reports  {fmt(m.mean())}", fontsize=10.5,
+            color=INK, va="top")
+    ax.set_title("Its answer vs the true effect", fontsize=12, color=INK, loc="left", pad=8)
+    ax.set_ylabel("effect of the alert on prediction error")
     ax2 = axes[1]
     ax2.set_xscale("log")
     ax2.set_xlim(14_000, 700_000)
@@ -414,29 +419,30 @@ def figure_more_data():
     ax2.text(n[0] * 1.15, hi[0] + 0.0001, f"width {hi[0] - lo[0]:.4f}", fontsize=10, color=INK, va="bottom")
     ax2.text(n[-1], lo[-1] - 0.0001, f"width {hi[-1] - lo[-1]:.4f}", fontsize=10, color=INK, va="top",
              ha="center")
-    ax2.text(0.98, 0.04, f"true effect ({fmt(target)}) is far above this window;\nnone of the intervals covers it",
-             transform=ax2.transAxes, fontsize=10, color=INK2, ha="right", va="bottom")
-    ax2.set_title("The interval an analyst would report (zoomed)", fontsize=12, color=INK, loc="left", pad=8)
+    ax2.text(0.98, 0.04, f"the true effect ({fmt(target)}) is far above this window;\nnone of the error bars "
+             "reaches it", transform=ax2.transAxes, fontsize=10, color=INK2, ha="right", va="bottom")
+    ax2.set_title("Its error bars (zoomed in)", fontsize=12, color=INK, loc="left", pad=8)
     for a, digits in ((ax, 3), (ax2, 4)):
         a.set_xticks(n)
         a.set_xticklabels(ticks)
         a.minorticks_off()
-        a.set_xlabel("pre-deployment patients (log scale)")
+        a.set_xlabel("patients before the alert (log scale)")
         a.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(
             lambda v, _, d=digits: "0" if abs(v) < 1e-12 else f"{v:+.{d}f}".replace("-", "\u2212")))
     header(fig, "More data makes the wrong answer more confident",
-           "Standard union-graph estimator when standard care never gave the alerted patients the treatment "
-           "(ε = 0).\nThe estimate does not move toward the truth as data grows; only its interval shrinks.",
-           f"Source: figures/merged_expE7.json (part B) · simulation, {len(B['n_scaling']['runs']) // len(n)} runs "
-           "per sample size · right: median 95% bootstrap interval over runs")
+           "The usual correction fails when patients like the ones the alert flags were never treated before it "
+           "existed.\nIts answer does not move toward the truth as data grows; only its error bars shrink.",
+           f"Source: figures/merged_expE7.json (part B) · {len(B['n_scaling']['runs']) // len(n)} simulated runs "
+           "per data size · right: 95% error bars (median over runs)")
     save(fig, "03_more_data.png")
+    assert m.max() < 0 < target and covered == 0, "the caption describes this pattern"
     CAPTIONS.append((
-        "03_more_data.png", "Finding F2: more data does not help",
-        f"When standard care never treated the patients the alert flags, the standard estimator settles at "
-        f"{fmt(m.mean())} while the true effect is {fmt(target)}. Going from {n[0]:,} to {n[-1]:,} patients "
-        f"narrows its interval from {hi[0] - lo[0]:.4f} to {hi[-1] - lo[-1]:.4f} wide, and it covers the truth in "
-        f"{covered:.0%} of runs at every size. Our decomposition recovers {fmt(e0['E3_rollout_pi']['mean'])} from "
-        "the randomised arm in the same setting."))
+        "03_more_data.png", "More data doesn't fix it",
+        "The usual correction uses treatment records to work out what the alert itself did. It fails when, "
+        "before the alert existed, patients like the ones it now flags were never treated. It then gets even "
+        f"the direction wrong: it says the alert lowered prediction error ({fmt(m.mean())}) when it raised it "
+        f"({fmt(target)}). With {n[-1] // n[0]} times more patients its error bars shrink, but around the wrong "
+        f"answer. Our method gets it right ({fmt(e0['E3_rollout_pi']['mean'])})."))
 
 
 # ----------------------------------------------------------------------------- 4 retraining
@@ -445,7 +451,7 @@ def figure_retraining():
     g = {(e["setting"], e["arm"], e["round"]): e for e in H["summary"]}
     rounds = np.arange(1, H["parameters"]["rounds"] + 1)
     series = lambda arm, key: [g[("fixed_k0", arm, r)][key]["mean"] for r in rounds]
-    arms = (("keep", "Keep the original score", BLUE), ("naive", "Refit on post-deployment data", ORANGE))
+    arms = (("keep", "Keep the original model", BLUE), ("naive", "Retrain on the latest data each round", ORANGE))
     fig, axes = plt.subplots(1, 2, figsize=FIGSIZE)
     fig.subplots_adjust(left=0.075, right=0.985, top=0.68, bottom=0.16, wspace=0.22)
     ax = axes[0]
@@ -458,13 +464,13 @@ def figure_retraining():
         ax.text(r, naive[r - 1] + (0.6 if r == 3 else -0.9), f"{naive[r - 1]:.1f}", ha="center",
                 va="bottom" if r == 3 else "top", fontsize=10, color=INK)
     ax.text(rounds[-1], keep[-1] + 0.6, f"{keep[-1]:.1f}", ha="center", va="bottom", fontsize=10, color=INK)
-    ax.text(2.4, 10.15, f"Refitting on untreated patients, weighted by\n1/P(untreated), stays on the blue line "
-                      f"({weighted[-1]:.1f} at round 8)", fontsize=9.5, color=INK2, va="center",
-            bbox=dict(facecolor=SURFACE, edgecolor="none", pad=2))
+    assert min(weighted) > 0.95 * min(keep), "the note says the weighted refit stays on the blue line"
+    ax.text(2.4, 10.15, "Retraining only on untreated patients (with a\nstatistical correction) stays on the blue line",
+            fontsize=9.5, color=INK2, va="center", bbox=dict(facecolor=SURFACE, edgecolor="none", pad=2))
     ax.set_ylim(-1.5, 13.8)
     ax.set_xticks(rounds)
-    ax.set_xlabel("deployment round (refit after each)")
-    ax.set_title("Events averted per 100 patients", fontsize=12, color=INK, loc="left", pad=8)
+    ax.set_xlabel("round (model retrained after each)")
+    ax.set_title("Bad outcomes prevented per 100 patients", fontsize=12, color=INK, loc="left", pad=8)
     baseline(ax)
     ax = axes[1]
     for arm, label, color in arms:
@@ -473,42 +479,44 @@ def figure_retraining():
     au = series("naive", "observed_auroc")
     ax.set_ylim(0.6, 0.78)
     ax.set_xticks(rounds)
-    ax.set_xlabel("deployment round (refit after each)")
-    ax.set_title("What the dashboard shows: observed AUROC", fontsize=12, color=INK, loc="left", pad=8)
-    ax.annotate("best AUROC exactly when\nthe alert averts nothing", xy=(2, au[1]), xytext=(3.3, 0.765),
+    ax.set_xlabel("round (model retrained after each)")
+    ax.set_title("What the dashboard shows: accuracy (AUROC)", fontsize=12, color=INK, loc="left", pad=8)
+    ax.annotate("best accuracy exactly when\nthe alert prevents nothing", xy=(2, au[1]), xytext=(3.3, 0.765),
                 fontsize=10, color=INK2, va="center",
                 arrowprops=dict(arrowstyle="-", color=MUTED, lw=1.0, shrinkA=2, shrinkB=5))
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.03, 0.815), ncol=2, columnspacing=2.2,
                handlelength=2.2)
-    header(fig, "Refitting on the misattribution throws the benefit away",
-           "Fixed alert threshold, homogeneous treatment effect.  The refit score stops alerting every other round, "
-           "while\nthe dashboard metric improves in exactly those rounds.",
-           f"Source: figures/merged_expH.json · simulation, {H['parameters']['seeds']} seeds; 95% intervals are "
-           "narrower than the markers")
+    header(fig, "Retraining on recent data throws the benefit away",
+           "Flagged patients are treated and do fine, so a retrained model thinks they are low risk and stops flagging "
+           "them.\nIt keeps flipping back and forth, and the accuracy score looks best exactly when the alert helps "
+           "no one.",
+           f"Source: figures/merged_expH.json · {H['parameters']['seeds']} simulated runs, alert threshold kept "
+           "fixed; 95% intervals are narrower than the markers")
     save(fig, "04_retraining.png")
     CAPTIONS.append((
-        "04_retraining.png", "Finding F3: acting on the misattribution",
-        f"Refitting the score on post-deployment data makes the benefit collapse every other round "
-        f"({naive[0]:.1f} → {naive[1]:.1f} → {naive[2]:.1f} → {naive[3]:.1f} events averted per "
-        "100 patients), and the dashboard AUROC looks best in exactly the rounds where the alert does nothing. "
-        f"Refitting on untreated patients, weighted by 1/P(untreated), keeps the benefit ({weighted[-1]:.1f} at "
-        "round 8)."))
+        "04_retraining.png", "Retraining backfires",
+        "When accuracy changes, a common response is to retrain the model on recent data. But the flagged "
+        "patients were treated and did fine, so the retrained model learns that they are low risk and stops "
+        "flagging them. The benefit then collapses every other round "
+        f"({naive[0]:.1f} → {naive[1]:.1f} → {naive[2]:.1f} → {naive[3]:.1f} bad outcomes prevented per 100 "
+        "patients), and the accuracy score looks best in exactly the rounds where the alert helps no one. "
+        "Retraining only on untreated patients, with a statistical correction, keeps the benefit."))
 
 
 # ----------------------------------------------------------------------------- 5 refit rules
 def figure_refit_rules():
     E1 = load("merged_expE1.json")
     worst = {w["rule"]: w["max_mean_regret_pp"] for w in E1["worst_case"] if w["threshold_rule"] == "fixed"}
-    rules = (("always", "Always refit", False),
-             ("outcome_monitor", "Refit if outcome share > ½, read from the monitor", False),
-             ("exo_proposed", "Refit if exogenous share > ½, our decomposition", False),
-             ("never", "Never refit", False),
-             ("outcome_proposed", "Refit if outcome share > ½, our decomposition", True),
-             ("refit_untreated", "Always refit on untreated patients (needs action log)", False))
+    rules = (("always", "Always retrain", False),
+             ("outcome_monitor", "Retrain if risk changed, per standard monitoring", False),
+             ("exo_proposed", "Retrain unless the alert did most of it, per our method", False),
+             ("never", "Never retrain", False),
+             ("outcome_proposed", "Retrain if risk changed, per our method", True),
+             ("refit_untreated", "Retrain on untreated patients (needs treatment records)", False))
     vals = [max(0.0, worst[r]) for r, _, _ in rules]
     fig, ax = plt.subplots(figsize=FIGSIZE)
-    fig.subplots_adjust(left=0.42, right=0.95, top=0.74, bottom=0.15)
+    fig.subplots_adjust(left=0.46, right=0.95, top=0.74, bottom=0.15)
     ys = np.arange(len(rules))[::-1]
     ax.set_xlim(-0.3, 13.2)
     ax.set_ylim(-0.6, len(rules) - 0.4)
@@ -527,20 +535,23 @@ def figure_refit_rules():
     ax.tick_params(axis="y", length=0)
     ax.spines["left"].set_visible(False)
     baseline(ax, horizontal=True)
-    ax.set_xlabel("worst-case events lost per 100 patients (lower is better)")
-    header(fig, "Attribution helps the refit decision only if it reads the right term",
-           "After a monitoring window: keep the score or refit it?  Events lost against the better of the two, worst "
-           "case over four\nscenarios (covariate shift, outcome shift, alert only, all three).",
-           f"Source: figures/merged_expE1.json · simulation, {E1['parameters']['reps']} replicates per scenario, "
-           "fixed alert threshold")
+    ax.set_xlabel("extra bad outcomes per 100 patients, worst case (lower is better)")
+    header(fig, "Knowing the real cause tells you when to retrain",
+           "After a monitoring period, should the hospital keep the model or retrain it? Each rule makes that call."
+           "\nScore: extra bad outcomes compared with the better choice, worst case over four simulated situations.",
+           f"Source: figures/merged_expE1.json · {E1['parameters']['reps']} simulated runs per situation, alert "
+           "threshold kept fixed")
     save(fig, "05_refit_rules.png")
+    assert worst["outcome_proposed"] < 0.05 and worst["outcome_monitor"] > 0.95 * worst["always"], \
+        "the caption describes this pattern"
     CAPTIONS.append((
-        "05_refit_rules.png", "Finding F4: does attribution help the refit call?",
-        "Worst-case events lost against the better of keeping or refitting, over the four scenarios. Refitting "
-        f"only when our decomposition says the outcome mechanism changed loses {worst['outcome_proposed']:.1f}; "
-        f"the same rule fed by the monitor loses {worst['outcome_monitor']:.1f}, because it reads the alert's "
-        "effect as outcome drift. Refitting when the exogenous share is over half (the rule in the to-do) "
-        f"loses up to {worst['exo_proposed']:.1f}, under pure covariate shift."))
+        "05_refit_rules.png", "Knowing the cause tells you when to retrain",
+        "After monitoring for a while, should the hospital keep the model or retrain it? We scored each "
+        "decision rule by the extra bad outcomes it causes compared with the better choice. Retraining only "
+        "when our method says the underlying risk changed caused none in any of the four situations we tested. "
+        f"The same rule using standard monitoring causes up to {worst['outcome_monitor']:.1f} extra bad outcomes "
+        "per 100 patients, about as many as always retraining, because it mistakes the alert's effect for a "
+        "change in risk."))
 
 
 # ----------------------------------------------------------------------------- 6 auroc vs benefit
@@ -556,35 +567,36 @@ def figure_auroc_vs_benefit():
     fig.subplots_adjust(left=0.075, right=0.975, top=0.74, bottom=0.16, wspace=0.22)
     ax = axes[0]
     ax.axhline(au0, color=INK2, lw=1.0, zorder=2)
-    ax.text(0.5, au0 + 0.004, f"before deployment: {au0:.2f}", fontsize=10, color=INK2, va="bottom", ha="center")
+    ax.text(0.5, au0 + 0.004, f"before the alert: {au0:.2f}", fontsize=10, color=INK2, va="bottom", ha="center")
     ax.plot(p, au, color=BLUE, marker="o", ms=7, mec=SURFACE, mew=1.8, zorder=3)
     ax.text(p[0], au[0] - 0.008, f"{au[0]:.2f}", ha="center", va="top", fontsize=10.5, color=INK)
     ax.text(p[-1], au[-1] - 0.008, f"{au[-1]:.2f}", ha="center", va="top", fontsize=10.5, color=INK)
     ax.set_ylim(0.6, 0.77)
-    ax.set_title("Observed AUROC after deployment", fontsize=12, color=INK, loc="left", pad=8)
+    ax.set_title("Accuracy after the alert goes live (AUROC)", fontsize=12, color=INK, loc="left", pad=8)
     ax = axes[1]
     ax.plot(p, av, color=BLUE, marker="o", ms=7, mec=SURFACE, mew=1.8, zorder=3)
     ax.text(p[0], av[0] + 0.5, f"{av[0]:.1f}", ha="center", va="bottom", fontsize=10.5, color=INK)
     ax.text(p[-1], av[-1] + 0.5, f"{av[-1]:.1f}", ha="center", va="bottom", fontsize=10.5, color=INK)
     ax.set_ylim(0, 14)
     baseline(ax)
-    ax.set_title("Events averted per 100 patients", fontsize=12, color=INK, loc="left", pad=8)
+    ax.set_title("Bad outcomes prevented per 100 patients", fontsize=12, color=INK, loc="left", pad=8)
     for a in axes:
         a.set_xlim(0.03, 0.97)
         a.set_xticks([0.1, 0.3, 0.5, 0.7, 0.9])
         a.set_xticklabels(["10%", "30%", "50%", "70%", "90%"])
         a.set_xlabel("share of alerts clinicians act on")
-    header(fig, "The dashboard metric falls as the alert helps more patients",
-           "Same model, same patients; only how often clinicians act on an alert changes (treatment effect "
-           "θ = 2.5).",
-           f"Source: figures/merged_expE7.json (part D) · simulation, {reps} replicates per setting; 95% intervals "
-           "are narrower than the markers")
+    header(fig, "Measured accuracy falls as the alert helps more patients",
+           "Same model, same patients; the only thing that changes is how often clinicians act on an alert.",
+           f"Source: figures/merged_expE7.json (part D) · {reps} simulated runs per setting; 95% intervals are "
+           "narrower than the markers")
     save(fig, "06_auroc_vs_benefit.png")
+    assert all(np.diff(au) < 0) and all(np.diff(av) > 0), "the caption describes this pattern"
     CAPTIONS.append((
-        "06_auroc_vs_benefit.png", "Finding F6: discrimination and benefit move in opposite directions",
-        f"As clinicians act on more alerts, observed AUROC falls from {au[0]:.2f} to {au[-1]:.2f} while events "
-        f"averted rise from {av[0]:.1f} to {av[-1]:.1f} per 100 patients. A drop in AUROC after deployment can "
-        "mean the alert is working."))
+        "06_auroc_vs_benefit.png", "A drop in accuracy can mean the alert is working",
+        f"The more often clinicians act on alerts, the more bad outcomes are prevented (from {av[0]:.1f} to "
+        f"{av[-1]:.1f} per 100 patients) and the lower the model's measured accuracy (AUROC from {au[0]:.2f} to "
+        f"{au[-1]:.2f}). So a falling accuracy score after launch is not, on its own, a sign that something is "
+        "wrong."))
 
 
 # ----------------------------------------------------------------------------- 7 prevalence
@@ -607,29 +619,31 @@ def figure_prevalence():
         ax.text(xi, v + (0.0009 if v > 0 else -0.0009), fmt(v, 4), ha="center", va="bottom" if v > 0 else "top",
                 fontsize=11, color=INK)
     ax.set_xticks(x)
-    ax.set_xticklabels([f"{100 * r:.0f}% event rate" for r in rate], fontsize=11, color=INK)
+    ax.set_xticklabels([f"{100 * r:.0f}%" for r in rate], fontsize=12, color=INK)
     ax.tick_params(axis="x", length=0)
-    ax.set_ylabel("Brier change after a successful alert")
+    ax.set_xlabel("share of patients who would have the bad outcome without the alert")
+    ax.set_ylabel("change in prediction error")
     ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(
         lambda v, _: "0" if abs(v) < 1e-12 else f"{v:+.3f}".replace("-", "\u2212")))
     handles = [plt.Rectangle((0, 0), 1, 1, color=RED), plt.Rectangle((0, 0), 1, 1, color=BLUE)]
     fig.legend(handles, ["looks like a performance drop", "looks like an improvement"], loc="upper right",
                bbox_to_anchor=(0.97, 0.835), ncol=2, handlelength=1.0, handleheight=1.0, columnspacing=1.6)
     assert auroc_fall, "the subtitle says AUROC falls in every case"
-    header(fig, "At realistic ward prevalence, a working alert looks like an improvement",
-           f"Same deployment, alert rate held at {P['parameters']['alert_rate']:.0%}, outcome intercept lowered.  The "
-           f"monitor books {min(share):.0%} or more of each change\nto the outcome mechanism, and observed AUROC falls "
-           "in every case; only the sign of the Brier change flips.",
-           f"Source: figures/merged_expP.json · exact expected values over {P['parameters']['blocks']} blocks of "
+    assert dr[0] > 0 > dr[2] and dr[3] < 0, "the caption describes this pattern"
+    header(fig, "When the bad outcome is uncommon, a working alert looks like an improvement",
+           f"Same alert (it flags {P['parameters']['alert_rate']:.0%} of patients); only how common the bad outcome "
+           f"is changes.\nAccuracy (AUROC) falls every time, and standard monitoring blames changed risk for "
+           f"{min(share):.0%} or more of each change.",
+           f"Source: figures/merged_expP.json · averaged over {P['parameters']['blocks']} batches of "
            f"{P['parameters']['n']:,} simulated patients")
     save(fig, "07_prevalence.png")
     CAPTIONS.append((
-        "07_prevalence.png", "Prevalence decides the sign",
-        f"At a {100 * rate[0]:.0f}% event rate a successful alert raises the Brier score ({fmt(dr[0], 4)}); at "
-        f"{100 * rate[2]:.0f}% and {100 * rate[3]:.0f}% it lowers it ({fmt(dr[2], 4)}, {fmt(dr[3], 4)}), while "
-        "AUROC still falls. Either way the monitor books the change to the outcome mechanism, so at ward "
-        "prevalence the alert's success reads as the outcome mechanism improving. Open team decision: how the "
-        "intro frames the “performance drops” premise."))
+        "07_prevalence.png", "When the outcome is uncommon, a working alert looks like an improvement",
+        f"If the bad outcome is common ({100 * rate[0]:.0f}% of patients), a working alert makes prediction "
+        "error go up, which looks like the model getting worse. At rates closer to real hospital wards "
+        f"({100 * rate[2]:.0f}% and {100 * rate[3]:.0f}%), error goes down instead, which looks like patients "
+        "getting healthier. Either way, standard monitoring blames a change in risk. Open decision for the "
+        "team: the paper's introduction currently assumes performance drops after launch."))
 
 
 # ----------------------------------------------------------------------------- captions
@@ -639,12 +653,18 @@ def write_captions():
              "Figures for the team channel, generated by `python3 sim2/make_status_update.py` from the result "
              "files in `figures/` (every number below is read from those files).", "",
              "## Post", "",
-             "Status on drift attribution: the experiment tasks E1 to E7 are done apart from the MIMIC-IV run, "
-             "and every result now regenerates from a script (R1, R2, R4). The one thing we are missing is "
-             "MIMIC-IV data: someone with credentialed PhysioNet access needs to run `sim2/run_e6.sh all <username>` "
-             "on their own machine. It downloads six tables (about 3 GB), builds the cohort and runs the "
-             "experiment (main run 20 to 40 minutes), and every step writes aggregates only. Figures below, one "
-             "caption each.",
+             "**What the project is about.** Hospitals use AI models that flag patients at risk, for example of "
+             "sepsis. When a flag works, clinicians treat the patient and the bad outcome often doesn't happen. "
+             "The model's prediction then looks wrong, so its measured accuracy changes even though nothing is "
+             "broken. Monitoring tools try to explain such changes, and we show they blame the wrong cause: they "
+             "read the alert's success as a change in patients' underlying risk. Our method gets the cause right "
+             "by holding the alert back for a randomly chosen group of patients and comparing.",
+             "",
+             "**Where we are.** All the simulation experiments are done, and every result can be regenerated "
+             "with one command. The one missing piece is a run on MIMIC-IV, a large set of real hospital "
+             "records. Someone with approved PhysioNet access needs to run `sim2/run_e6.sh all <username>` on "
+             "their own computer, since the data can't be shared. It downloads about 3 GB, the main run takes "
+             "20 to 40 minutes, and it saves only summary numbers. Figures below, one caption each.",
              "", "## Captions", ""]
     for name, title, text in order:
         lines += [f"**{name[:2]}. {title}** (`{name}`)", "", text, ""]
