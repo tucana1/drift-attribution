@@ -60,14 +60,15 @@ tables rebuilt from the rerun are byte-identical to the committed ones. The
 ## Figures and tables
 
 ```sh
-python3 sim2/make_figures2.py   # all main-text figures (1 to 6; copies Figure 7 if the MIMIC-IV run exists)
-python3 sim2/make_tables.py     # every generated table in aaai/tables/
+python3 sim2/make_figures2.py        # all main-text figures (1 to 6; copies Figure 7 if the MIMIC-IV run exists)
+python3 sim2/make_tables.py          # every generated table in aaai/tables/
+python3 sim2/make_status_update.py   # status figures and captions for the team (docs/status_update/)
 python3 sim2/validate_josh_results.py
 ```
 
-Both read only the saved JSON files, so they take seconds and do not rerun any
-experiment. Figures are saved without a creation date, so regenerating them
-gives identical files.
+The three make scripts read only the saved JSON files, so they take seconds
+and do not rerun any experiment. Figures are saved without a creation date, so
+regenerating them gives identical files.
 
 ## Seeds
 
