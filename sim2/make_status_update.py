@@ -215,7 +215,7 @@ def figure_workflow():
          tag="R1, R2")
     node(ax, 57, 23.6, 20, 7.4, "Figures and tables", ("rebuilt with one command,", "identical every time"),
          tag="R4")
-    node(ax, 57, 10.2, 20, 7.4, "Automatic checks", ("every number in the draft", "matches the saved results"))
+    node(ax, 57, 10.2, 20, 7.4, "Automatic checks", ("key numbers in the draft are", "checked against the results"))
     arrow(ax, (67, 37.0), (67, 31.1))
     arrow(ax, (67, 23.6), (67, 17.7))
 
@@ -240,8 +240,8 @@ def figure_workflow():
     ax.text(x0 + 1.2, y0 + 1.4, f"{todo} TODO notes left in the draft", fontsize=9.5, color=MUTED, va="center")
     arrow(ax, (77.0, 27.3), (79.9, 27.3))
     arrow(ax, (77.0, 13.9), (79.9, 13.9))
-    ax.text(97.5, 2.2, "All simulations use one hospital setup; with the public data, only the alert and its effect "
-                       "are simulated.", fontsize=9, color=MUTED, ha="right")
+    ax.text(97.5, 2.2, "The main simulations use one hospital setup (the stress tests vary it); with the public data, "
+                       "only the alert and its effect are simulated.", fontsize=9, color=MUTED, ha="right")
     save(fig, "01_workflow.png")
     CAPTIONS.append((
         "01_workflow.png",
@@ -254,14 +254,14 @@ COMPONENTS = (("The alert being acted on", BLUE), ("Underlying risk changed", OR
 METHODS = ("What really\nhappened", "Standard\nmonitoring", "Our method")
 
 
-def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, label_min, tick_step):
+def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, label_min, tick_step, note=None):
     """Horizontal grouped bars: one group per method, one bar per component, value at the tip.
 
     panels: (panel title, rows, errors); rows[method][component] is a value or None (no such
     term), errors[method][component] is a 95% interval or None.
     """
     fig, axes = plt.subplots(1, len(panels), figsize=FIGSIZE, sharey=True)
-    fig.subplots_adjust(left=0.2, right=0.975, top=0.69, bottom=0.165, wspace=0.1)
+    fig.subplots_adjust(left=0.2, right=0.975, top=0.69, bottom=0.2 if note else 0.165, wspace=0.1)
     ends = [0.0]
     for _, rows, errs in panels:
         for r, e in zip(rows, errs):
@@ -272,7 +272,7 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
     xlim = (lo - (0.24 if lo < -label_min / 2 else 0.03) * span, hi + (0.2 if hi > label_min / 2 else 0.12) * span)
     # notes at zero go on the side of the axis with more room
     side = 1 if hi >= -lo else -1
-    note = dict(va="center", ha="left" if side > 0 else "right", color=MUTED)
+    at_zero = dict(va="center", ha="left" if side > 0 else "right", color=MUTED)
     pitch, thick = 0.27, 0.2
     for ax, (ptitle, rows, errs) in zip(axes, panels):
         ax.set_xlim(*xlim)
@@ -287,7 +287,7 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
                 v, ci = row[k], err[k]
                 if v is None:
                     ax.text(0.012 * span * side, y, "doesn't consider the alert", fontsize=9.5, style="italic",
-                            **note)
+                            **at_zero)
                     continue
                 rounded_bar(ax, y, thick, v, color, horizontal=True)
                 if ci is not None:
@@ -297,7 +297,7 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
                     ax.text(tip + (0.015 if v > 0 else -0.015) * span, y, fmt(v, digits), va="center",
                             ha="left" if v > 0 else "right", fontsize=10, color=INK, zorder=5)
                 elif g == 0 and v == 0:
-                    ax.text(0.012 * span * side, y, "0", fontsize=9.5, **note)
+                    ax.text(0.012 * span * side, y, "0", fontsize=9.5, **at_zero)
         ax.set_title(ptitle, fontsize=12, color=INK, loc="left", pad=8)
         ax.set_xlabel(xlabel)
         ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(tick_step))
@@ -309,6 +309,8 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
     fig.legend(handles, [l for l, _ in COMPONENTS], loc="upper right", bbox_to_anchor=(0.975, 0.835),
                ncol=3, handlelength=1.0, handleheight=1.0, columnspacing=1.6)
     header(fig, title, subtitle, source)
+    if note:
+        fig.text(0.035, 0.062, note, fontsize=9.5, color=INK2, va="bottom")
     save(fig, name)
 
 
@@ -328,6 +330,9 @@ def figure_attribution():
         panels.append((ptitle, [truth, mon, pro], err))
         out[sc] = (truth, mon, pro)
     t3, m3, p3 = out["S3"]
+    # S4: the patient-mix shift moves more patients into the alert region; the policy contrast that the
+    # truth row and our method use gives that interaction to the alert (Shapley symmetry would halve it)
+    overlap = A["references"]["S4"]["I_Xpi"]["value"]
     assert t3[0] > 0 and m3[1] > 0.9 * t3[0] and p3[0] > 0.9 * t3[0], "the captions describe this pattern"
     attribution_chart(
         "02_attribution.png", panels,
@@ -336,7 +341,9 @@ def figure_attribution():
         "\nchange in the model's prediction error. Our method gets it right; standard monitoring does not.",
         f"Source: figures/merged_expE7.json · {reps} simulated runs per panel, {E7['parameters']['n']:,} patients "
         "per period · thin lines: 95% intervals",
-        "change in prediction error (Brier score)", 3, 0.002, 0.01)
+        "change in prediction error (Brier score)", 3, 0.002, 0.01,
+        note=f"Right: the new patients trigger more alerts, so {fmt(overlap, 3, False)} of the change comes from "
+             "both together; it is counted as the alert's, as our method does.")
     CAPTIONS.append((
         "02_attribution.png",
         "In a simulated hospital where the only change is clinicians acting on the alert, standard monitoring "
@@ -521,7 +528,7 @@ def figure_refit_rules():
     ax.spines["left"].set_visible(False)
     baseline(ax, horizontal=True)
     ax.set_xlabel("extra bad outcomes per 100 patients, worst case (lower is better)")
-    header(fig, "Knowing the real cause tells you when to retrain",
+    header(fig, "Knowing whether risk really changed tells you when to retrain",
            "After a monitoring period, should the hospital keep the model or retrain it? Each rule makes that call."
            "\nScore: extra bad outcomes compared with the better choice, worst case over four simulated situations.",
            f"Source: figures/merged_expE1.json · {E1['parameters']['reps']} simulated runs per situation, alert "
