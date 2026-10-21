@@ -40,17 +40,22 @@
 \maketitle
 
 \begin{abstract}
-\todo{Write last. One paragraph: (1) monitoring detects drift but does not
-explain it; (2) attribution methods decompose a performance change into
-distribution-shift mechanisms via a cooperative game, but the game's value
-function assumes mechanisms can be switched independently; (3) once a model is
-deployed and acted upon, the post-deployment environment is a causal descendant
-of the model, the model-mediated policy has no counterpart in the pre-deployment
-environment, and the game is no longer well defined; (4) we redefine the
-estimand with the model-mediated component as a policy, give identification and
-partial-identification results, and show in simulation that the naive
-decomposition attributes performative success to outcome-mechanism shift and
-reverses the retraining decision.}
+\todo{Write last. One paragraph: (1) monitoring detects a change in a deployed
+clinical model's performance but does not explain it; (2) attribution methods
+decompose a performance change into distribution-shift mechanisms with a
+cooperative game whose coalition values switch mechanisms between the two
+periods; (3) once the model is deployed and acted upon, the alert policy has no
+counterpart before deployment: each coalition value is a domain-adaptation
+problem with the pre-deployment period as source, absolute continuity fails
+where only the alert triggers treatment, so the game is not identified from
+pre-deployment data, and its estimator fails silently with a bias that does not
+shrink with sample size; (4) we replace the symmetric share of the
+model-mediated mechanism with a policy contrast, identified by a randomised
+unalerted arm (a holdout set in the sense of Liley et al.) but not when
+deployment also moves the patient mix, which a site-level stepped wedge
+identifies; (5) in simulation the standard decomposition books the alert's
+success to outcome-mechanism shift and reverses the keep-or-refit decision,
+while the policy-contrast decomposition recovers its own estimand.}
 \end{abstract}
 
 %==============================================================================
@@ -59,15 +64,17 @@ reverses the retraining decision.}
 
 \todo{Four paragraphs, about one page.}
 
-\paragraph{P1: the monitoring gap.} A deployed clinical prediction model's
-performance drops. Monitoring reports that it dropped, not why. Three
-mechanisms are observationally consistent with the same degradation and demand
-different responses: the patient population changed (covariate shift), the
-outcome mechanism changed (biology, care pathways, coding and documentation),
-or the model worked: high-risk patients were flagged, clinicians intervened,
-outcomes improved, and the learned predictor-outcome relationship was
-invalidated by its own success~\citep{lenert2019victims, sperrin2019explicit,
-balcarcel2025feedback}.
+\paragraph{P1: the monitoring gap.} After deployment, a clinical prediction
+model's measured performance changes. Monitoring reports that it changed, not
+why. Three mechanisms are observationally consistent with the same change and
+demand different responses: the patient population changed (covariate shift),
+the outcome mechanism changed (biology, care pathways, coding and
+documentation), or the model worked: high-risk patients were flagged,
+clinicians intervened, outcomes improved, and the learned predictor-outcome
+relationship was invalidated by its own success~\citep{lenert2019victims,
+sperrin2019explicit, balcarcel2025feedback}. The last mechanism lowers observed
+discrimination at every event rate we simulate, while the Brier score rises or
+falls with the event rate (Appendix~\ref{app:robustness}).
 
 \paragraph{P2: attribution exists and is solved for the exogenous case.}
 \citet{zhang2023attributing} formulate performance-change
@@ -78,32 +85,61 @@ terms; \citet{gordaliza2025causal} carry the framework into
 medical imaging. \emph{We do not claim that nobody decomposes drift into
 causal components.}
 
-\paragraph{P3: the formulation breaks under deployment feedback.} The game
-defines the value of a set of mechanisms as the performance that would have
-been observed had only that set changed. This requires each mechanism to be
-independently switchable between environments. Under deployment feedback the
-post-deployment environment is a causal descendant of the audited model: the
-model-mediated action policy is not a mechanism that \emph{changed}, it is a
-mechanism that did not \emph{exist} before deployment. Switching it off does
-not hold the other mechanisms fixed; it dissolves the environment in which they
-were measured. Prediction-under-interventions work defines the right estimand
-for a model whose predictions trigger treatment~\citep{sperrin2018msm,
-vangeloven2020prediction, keogh2024prediction, luijken2024estimands}, and the
-performative-prediction literature characterises the dynamics of retraining
-under such feedback~\citep{perdomo2020performative, lee2026partially,
-kabra2024limitations}. Neither attributes an observed drop.
+\paragraph{P3: deployment feedback breaks identification.} The game values a
+set of mechanisms by the performance that would have been observed had only
+that set changed between the two periods. Under deployment feedback one
+mechanism, the action policy, is induced by the audited model and has no
+counterpart before deployment: patients whom only the alert would flag were
+almost never treated under standard care. \citet{boeken2024evaluating} model
+the deployment of a decision support system as a causal domain shift; they
+define deployment and retraining effects, show that these are not identifiable
+from a single source domain without further assumptions, and identify them
+when the action is measured after deployment and an absolute-continuity
+condition holds. \citet{liley2021model} show that naive updating of a score
+that drives interventions either converges to a score that predicts its own
+effect or settles into an oscillation, propose a holdout set of patients for
+whom the score is not computed as a safe update strategy, and name as an open
+difficulty telling whether a model's inaccuracy comes from drift in the
+underlying system or from the effect of the intervention. That difficulty is
+the question of this paper. \citet{haidarwehbe2025holdout} derive the optimal
+size of such a holdout set, and \citet{feng2024designing} design monitoring
+strategies that account for performativity. Prediction-under-interventions work
+defines estimands for a model whose predictions trigger
+treatment~\citep{sperrin2018msm, vangeloven2020prediction,
+keogh2024prediction, luijken2024estimands}, and the performative-prediction
+literature studies retraining under such feedback~\citep{perdomo2020performative,
+kabra2024limitations, lee2026partially}. None of this work decomposes an
+observed performance change into the contributions of its mechanisms.
 
-\paragraph{P4: contributions.}
-(i) A proposition showing that the attribution game is not well defined when
-one player is a policy induced by the audited model (Section~\ref{sec:break});
-(ii) a redefined decomposition in which the model-mediated component is a
-policy contrast and the remaining mechanisms are exogenous
-(Section~\ref{sec:estimand}); (iii) identification conditions by source of
-variation and a partial-identification result for the threshold-discontinuity
-design (Section~\ref{sec:ident}); (iv) a simulation showing that the naive
-decomposition attributes performative success to outcome-mechanism shift and
-reverses the retraining decision, and that AUROC and net benefit move in
-opposite directions in this regime (Section~\ref{sec:sim}).
+\paragraph{P4: contributions.} We make three contributions.
+(i)~\emph{Non-identification of the attribution game}
+(Section~\ref{sec:break}). Each coalition value of the game of
+\citet{zhang2023attributing} is a domain-adaptation problem in the sense of
+\citet{boeken2024evaluating}, with the pre-deployment period as source.
+Absolute continuity fails in the alert-only region, so the game is not
+identified from pre-deployment data, and its importance-weighting estimator
+fails silently, with a bias that does not shrink with sample size.
+(ii)~\emph{A decomposition with the model as a policy, identified by design}
+(Sections~\ref{sec:estimand} and~\ref{sec:ident}). Shapley symmetry is the
+wrong axiom when one player is the decision variable; we replace that player's
+share with a policy contrast, the loss-scale analogue of the deployment effect
+of \citet{boeken2024evaluating}, inside the decomposition of a performance
+change. A randomised unalerted arm, the holdout set of \citet{liley2021model}
+and \citet{haidarwehbe2025holdout}, identifies the policy term but not a
+covariate shift caused by deployment itself; a site-level stepped wedge
+identifies that split, and a threshold-discontinuity design bounds the policy
+term.
+(iii)~\emph{Consequences for decisions, in simulation}
+(Section~\ref{sec:sim}). The standard decomposition books the alert's success
+to outcome-mechanism shift, and no diagnostic computable from the two periods
+catches it; a keep-or-refit rule fed by it refits an effective model and loses
+the benefit. We reproduce the oscillation of naive retraining predicted by
+Theorem~1 of \citet{liley2021model} in an alert-threshold setting and add that
+holding the alert rate fixed removes it under a homogeneous treatment effect
+but not under a heterogeneous one, that the dashboard metric and patient
+benefit move in antiphase, and that observed AUROC and standard net benefit
+fall while the alert averts more events, a result complementary to Section~3.1
+of \citet{liley2021model}.
 
 %==============================================================================
 \section{Setting}
@@ -121,6 +157,23 @@ Outcomes follow $P_e(Y \mid X, A)$, which may itself differ between
 environments through $U$. The graph is
 $X \to \rhat \to A \to Y$, $X \to A$, $X \to Y$, with $U$ entering $X$, $A$,
 $Y$.
+
+\paragraph{Clinical task.} We fix one task throughout. The population is adult
+ward inpatients, scored at a prediction time during the admission; the outcome
+$Y$ is deterioration within 12 hours, defined as ICU admission or in-hospital
+death. An alert ($\rhat > \tau$) triggers a bedside review by the ward team, who
+may start early treatment or escalate care; $A = 1$ denotes that action.
+Without the model, standard care acts on clinical suspicion: patients whose
+deterioration is apparent at the bedside are reviewed and treated early, and
+other patients rarely are. The model adds value for the patients it flags whom
+clinicians would not have suspected; before deployment such patients were
+almost never treated, which is the support condition that
+Section~\ref{sec:break} turns on. The simulator of Section~\ref{sec:sim} encodes
+these policies: $\pi_0$ treats suspected patients with probability $0.8$ and
+others with probability $\varepsilon$, $\pi_1$ also treats alerted patients whom
+clinicians did not suspect with probability $0.85$, and treatment lowers the
+log-odds of deterioration by $\theta$. The semi-synthetic MIMIC-IV experiment
+(Appendix~\ref{app:mimic}) uses the same population, outcome and horizon.
 
 \paragraph{What monitoring sees.} Routine monitoring evaluates a loss $\ell$ on
 $(X, Y)$ pairs and reports
@@ -654,18 +707,59 @@ update rules.}
 \section{Related work}
 \label{sec:related}
 
-\todo{Half a page, third person throughout. Attribution:
-\citep{zhang2023attributing} (ICML 2023), \citep{budhathoki2021rootcauses}
-(AISTATS 2021), \citep{cai2023disde}, \citep{gordaliza2025causal} (MedEurIPS 2025
-workshop). Performativity: \citep{perdomo2020performative},
-\citep{kabra2024limitations} (ICML 2024 workshop), \citep{lee2026partially}.
-Prediction under interventions: \citep{sperrin2018msm},
-\citep{vangeloven2020prediction}, \citep{lin2021scoping}, \citep{keogh2024prediction},
-\citep{luijken2024estimands}. Victims of their own success:
-\citep{lenert2019victims}, \citep{sperrin2019explicit}, \citep{balcarcel2025feedback}.
-Monitoring and governance that detect or regulate updates without attributing:
-\citep{wu2024regulating} (CHIL 2024), \citep{gonzalez2024regulating},
-\citep{afdideh2026aegis}, \citep{guan2026detecting}.}
+\paragraph{Attributing performance change.} \citet{zhang2023attributing}
+attribute a change in model performance to distribution shifts with a
+cooperative game whose players are the mechanisms of a causal factorisation,
+valued by Shapley values and estimated by importance weighting.
+\citet{budhathoki2021rootcauses} attribute a change in a joint distribution to
+changes in its causal mechanisms; \citet{cai2023disde} decompose a performance
+drop into covariate-shift terms and a term for a changed relationship between
+features and outcome; \citet{gordaliza2025causal} apply causal attribution to
+performance gaps in medical imaging. All treat every mechanism as exogenous to
+the audited model.
+
+\paragraph{Performativity and model updating.} \citet{perdomo2020performative}
+formalise performative prediction, in which a deployed model changes the
+distribution it is evaluated on, and analyse repeated retraining.
+\citet{kabra2024limitations} show that naive retraining can be provably
+suboptimal under such shifts, and \citet{lee2026partially} let the distribution
+respond both to the model and to exogenous drift. For clinical risk scores,
+\citet{liley2021model} show that naive updating either converges to a score
+that predicts its own effect or oscillates between two values, and propose a
+holdout set, patients for whom the score is not computed, as a safe update
+strategy; \citet{haidarwehbe2025holdout} derive the optimal size of that set.
+\citet{boeken2024evaluating} treat the deployment of a decision support system
+as a causal domain shift, define deployment and retraining effects, and give
+conditions under which they are identified, assuming that deployment leaves the
+covariate distribution unchanged. We use the holdout device for attribution and
+their absolute-continuity condition to locate where the game loses
+identification; the site-level design of Section~\ref{sec:ident} separates the
+deployment-caused covariate shift that their assumptions exclude.
+
+\paragraph{Prediction under interventions.} A line of work defines the estimand
+for a model whose predictions trigger treatment~\citep{sperrin2018msm, vangeloven2020prediction, lin2021scoping,
+keogh2024prediction, luijken2024estimands}, and several authors warn that a
+successful model can become a victim of its own success~\citep{lenert2019victims,
+sperrin2019explicit, balcarcel2025feedback}. This work targets prediction and
+validation, not the attribution of a monitored change.
+
+\paragraph{Monitoring and governance.} \citet{feng2024designing} compare
+monitoring strategies for a deployed algorithm under performativity, across
+monitoring criteria and observational or interventional data. Regulatory and
+post-market work analyses device updates~\citep{wu2024regulating}, the
+regulation of devices that evolve~\citep{gonzalez2024regulating} and
+governance infrastructure~\citep{afdideh2026aegis}, and
+\citet{guan2026detecting} detect degradation under data shift.
+These works detect or govern a change; they do not attribute it.
+
+\paragraph{Randomised trials of alerts.} Alerts change care, and their effect on
+outcomes varies. In a trial that randomised patients at six hospitals, alerts
+for acute kidney injury changed some care processes but not the primary
+outcome~\citep{wilson2021aki}; in a trial that randomised 74 clinical units in
+two health systems, an early warning system built on nursing surveillance data
+lowered in-hospital mortality and length of stay~\citep{rossetti2025concern}.
+Randomising the alert by patient or by unit, as these trials do, is the kind of
+identifying variation that Section~\ref{sec:ident} requires.
 
 %==============================================================================
 \section{Limitations and responsible-use statement}
