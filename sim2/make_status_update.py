@@ -25,7 +25,7 @@ from matplotlib.path import Path as MPath
 ROOT = Path(__file__).resolve().parents[1]
 FIG = ROOT / "figures"
 OUT = ROOT / "docs" / "status_update"
-DATE = "13 October 2026"
+DATE = "23 October 2026"
 
 # Reference palette, light surface. Categorical slots 1-3 pass the colour-vision
 # and normal-vision checks for every pair; aqua sits below 3:1 on the surface, so
@@ -376,8 +376,8 @@ def figure_real_covariates():
         assert truth[0] < 0 and mon[1] < 0 and pro[0] < 0, "the captions describe this pattern"
     CAPTIONS.append((
         "08_real_covariates.png",
-        "On real ICU patients from two hospitals (a public stand-in until the MIMIC-IV run), standard monitoring "
-        "again mistakes the alert's effect for a change in risk, while our method gets it right."))
+        "On real ICU patients from two hospitals with a simulated alert (a public stand-in until the MIMIC-IV run), "
+        "standard monitoring again mistakes the alert's effect for a change in risk, while our method gets it right."))
 
 
 # ----------------------------------------------------------------------------- 3 more data
@@ -477,7 +477,7 @@ def figure_retraining():
     ax.set_xticks(rounds)
     ax.set_xlabel("round (model retrained after each)")
     ax.set_title("What the dashboard shows: accuracy (AUROC)", fontsize=12, color=INK, loc="left", pad=8)
-    ax.annotate("best accuracy exactly when\nthe alert prevents nothing", xy=(2, au[1]), xytext=(3.3, 0.765),
+    ax.annotate("best accuracy exactly when\nthe alert prevents almost nothing", xy=(2, au[1]), xytext=(3.3, 0.765),
                 fontsize=10, color=INK2, va="center",
                 arrowprops=dict(arrowstyle="-", color=MUTED, lw=1.0, shrinkA=2, shrinkB=5))
     handles, labels = axes[0].get_legend_handles_labels()
@@ -486,20 +486,22 @@ def figure_retraining():
     header(fig, "Retraining on recent data throws the benefit away",
            "Flagged patients are treated and do fine, so a retrained model thinks they are low risk and stops flagging "
            "them.\nIt keeps flipping back and forth, and the accuracy score looks best exactly when the alert helps "
-           "no one.",
+           "almost no one.",
            f"Source: figures/merged_expH.json · {H['parameters']['seeds']} simulated runs, alert threshold kept "
            "fixed; 95% intervals are narrower than the markers")
     save(fig, "04_retraining.png")
     CAPTIONS.append((
         "04_retraining.png",
         "Retraining on recent data teaches the model that treated patients are low risk, so the alert keeps "
-        "switching off and on, and the accuracy score looks best exactly when the alert helps no one."))
+        "switching off and on, and the accuracy score looks best exactly when the alert helps almost no one."))
 
 
 # ----------------------------------------------------------------------------- 5 refit rules
 def figure_refit_rules():
     E1 = load("merged_expE1.json")
     worst = {w["rule"]: w["max_mean_regret_pp"] for w in E1["worst_case"] if w["threshold_rule"] == "fixed"}
+    rare = {w["rule"]: w["max_mean_regret_pp"] for w in load("merged_expE1_prev.json")["worst_case"]
+            if w["threshold_rule"] == "fixed"}
     rules = (("always", "Always retrain", False),
              ("outcome_monitor", "Retrain if risk changed, per standard monitoring", False),
              ("exo_proposed", "Retrain unless the alert did most of it, per our method", False),
@@ -538,8 +540,9 @@ def figure_refit_rules():
         "the caption describes this pattern"
     CAPTIONS.append((
         "05_refit_rules.png",
-        "Deciding when to retrain with our method never cost extra bad outcomes in our tests, while the same rule "
-        f"using standard monitoring cost up to {worst['outcome_monitor']:.1f} extra per 100 patients."))
+        "At our main simulation settings, deciding when to retrain with our method cost no extra bad outcomes, while "
+        f"the same rule using standard monitoring cost up to {worst['outcome_monitor']:.1f} extra per 100 patients; "
+        f"with a rarer bad outcome the two cost {rare['outcome_proposed']:.1f} and {rare['outcome_monitor']:.1f}."))
 
 
 # ----------------------------------------------------------------------------- 6 auroc vs benefit
@@ -625,7 +628,7 @@ def figure_prevalence():
     save(fig, "07_prevalence.png")
     CAPTIONS.append((
         "07_prevalence.png",
-        f"When the bad outcome is uncommon ({100 * rate[3]:.0f} to {100 * rate[2]:.0f}% of patients, as on real "
+        f"When the bad outcome is uncommon ({100 * rate[3]:.0f} to {100 * rate[2]:.0f}% of patients, closer to real "
         "wards), a working alert lowers prediction error, which standard monitoring reads as patients' risk going "
         "down."))
 
