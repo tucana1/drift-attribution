@@ -124,7 +124,9 @@ standard care never treats the patients that only the alert flags, absolute
 continuity fails there, and the game is not identified from the two periods
 without assuming the outcome-mechanism stability it is meant to test; its
 importance-weighting estimator then fails silently, with a bias that does not
-shrink with sample size. If standard care treats them rarely, the estimator is
+shrink with sample size, as weighting estimators do under structural
+positivity violations~\citep{petersen2012positivity}. If standard care treats
+them rarely, the estimator is
 consistent but too variable to use.
 (ii)~\emph{A decomposition with the model as a policy, identified by design}
 (Sections~\ref{sec:estimand} and~\ref{sec:ident}). Shapley symmetry is the
@@ -521,7 +523,8 @@ the wrong sign.}\label{fig:positivity}\end{figure*}
 returns $-0.0088$ [$-0.0090$, $-0.0086$] against a target of $+0.0269$, with an
 effective sample size of $15{,}993$ of $20{,}000$ and no extreme weight: the
 pre-deployment sample contains no treated patient in the alert-only region, so
-the estimator silently omits the cell. Scaling $n$ from $2 \times 10^4$ to
+the estimator silently omits the cell, the usual consequence of a structural
+positivity violation~\citep{petersen2012positivity}. Scaling $n$ from $2 \times 10^4$ to
 $4 \times 10^5$ leaves the bias at $-133\%$ of the target while an analyst's 95\%
 bootstrap interval narrows from [$-0.0102$, $-0.0077$] to
 [$-0.0091$, $-0.0085$] (medians over replicates) and excludes the target in
