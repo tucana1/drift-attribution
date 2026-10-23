@@ -40,17 +40,24 @@
 \maketitle
 
 \begin{abstract}
-\todo{Write last. One paragraph: (1) monitoring detects drift but does not
-explain it; (2) attribution methods decompose a performance change into
-distribution-shift mechanisms via a cooperative game, but the game's value
-function assumes mechanisms can be switched independently; (3) once a model is
-deployed and acted upon, the post-deployment environment is a causal descendant
-of the model, the model-mediated policy has no counterpart in the pre-deployment
-environment, and the game is no longer well defined; (4) we redefine the
-estimand with the model-mediated component as a policy, give identification and
-partial-identification results, and show in simulation that the naive
-decomposition attributes performative success to outcome-mechanism shift and
-reverses the retraining decision.}
+\todo{Write last. One paragraph: (1) monitoring detects a change in a deployed
+clinical model's performance but does not explain it; (2) attribution methods
+decompose a performance change into distribution-shift mechanisms with a
+cooperative game whose coalition values switch mechanisms between the two
+periods; (3) once the model is deployed and acted upon, the alert policy has no
+counterpart before deployment: each coalition value is a domain-adaptation
+problem with the pre-deployment period as source, absolute continuity fails or
+nearly fails where only the alert triggers treatment, so the game is not
+identified from pre-deployment data or not usefully estimable, and its
+estimator can fail silently with a bias that does not shrink with sample size;
+(4) we replace the symmetric share of the
+model-mediated mechanism with a policy contrast, identified by a randomised
+unalerted arm (a holdout set in the sense of Liley et al.); when deployment also
+moves the patient mix, the arm cannot separate that shift from exogenous change,
+which a site-level stepped wedge with random rollout order can; (5) in
+simulation the standard decomposition books the alert's
+success to outcome-mechanism shift and reverses the keep-or-refit decision,
+while the policy-contrast decomposition recovers its own estimand.}
 \end{abstract}
 
 %==============================================================================
@@ -59,15 +66,19 @@ reverses the retraining decision.}
 
 \todo{Four paragraphs, about one page.}
 
-\paragraph{P1: the monitoring gap.} A deployed clinical prediction model's
-performance drops. Monitoring reports that it dropped, not why. Three
-mechanisms are observationally consistent with the same degradation and demand
-different responses: the patient population changed (covariate shift), the
-outcome mechanism changed (biology, care pathways, coding and documentation),
-or the model worked: high-risk patients were flagged, clinicians intervened,
-outcomes improved, and the learned predictor-outcome relationship was
-invalidated by its own success~\citep{lenert2019victims, sperrin2019explicit,
-balcarcel2025feedback}.
+\paragraph{P1: the monitoring gap.} After deployment, a clinical prediction
+model's measured performance changes. Monitoring reports that it changed, not
+why. The change can come from three mechanisms that demand different
+responses: the patient population changed (covariate shift), the outcome
+mechanism changed (biology, care pathways, coding and documentation), or the
+model worked: high-risk patients were flagged, clinicians intervened, outcomes
+improved, and the learned predictor-outcome relationship was invalidated by its
+own success~\citep{lenert2019victims, sperrin2019explicit,
+balcarcel2025feedback}. Monitoring data show the first, because covariates are
+observed in both periods, but cannot separate the second from the third. The
+last mechanism lowers observed
+discrimination at every event rate we simulate, while the Brier score rises or
+falls with the event rate (Appendix~\ref{app:robustness}).
 
 \paragraph{P2: attribution exists and is solved for the exogenous case.}
 \citet{zhang2023attributing} formulate performance-change
@@ -78,32 +89,69 @@ terms; \citet{gordaliza2025causal} carry the framework into
 medical imaging. \emph{We do not claim that nobody decomposes drift into
 causal components.}
 
-\paragraph{P3: the formulation breaks under deployment feedback.} The game
-defines the value of a set of mechanisms as the performance that would have
-been observed had only that set changed. This requires each mechanism to be
-independently switchable between environments. Under deployment feedback the
-post-deployment environment is a causal descendant of the audited model: the
-model-mediated action policy is not a mechanism that \emph{changed}, it is a
-mechanism that did not \emph{exist} before deployment. Switching it off does
-not hold the other mechanisms fixed; it dissolves the environment in which they
-were measured. Prediction-under-interventions work defines the right estimand
-for a model whose predictions trigger treatment~\citep{sperrin2018msm,
-vangeloven2020prediction, keogh2024prediction, luijken2024estimands}, and the
-performative-prediction literature characterises the dynamics of retraining
-under such feedback~\citep{perdomo2020performative, lee2026partially,
-kabra2024limitations}. Neither attributes an observed drop.
+\paragraph{P3: deployment feedback breaks identification.} The game values a
+set of mechanisms by the performance that would have been observed had only
+that set changed between the two periods. Under deployment feedback one
+mechanism, the action policy, is induced by the audited model and has no
+counterpart before deployment: patients whom only the alert would flag were
+almost never treated under standard care. \citet{boeken2024evaluating} model
+the deployment of a decision support system as a causal domain shift; they
+define deployment and retraining effects, show that these are not identifiable
+from a single source domain without further assumptions, and identify them
+when the action is measured after deployment and an absolute-continuity
+condition holds. \citet{liley2021model} show that naive updating of a score
+that drives interventions either converges to a score that predicts its own
+effect or settles into an oscillation, propose a holdout set of patients for
+whom the score is not computed as a safe update strategy, and name as an open
+difficulty telling whether a model's inaccuracy comes from drift in the
+underlying system or from the effect of the intervention. That difficulty is
+the question of this paper. \citet{haidarwehbe2025holdout} derive the optimal
+size of such a holdout set, and \citet{feng2024designing} design monitoring
+strategies that account for performativity. Prediction-under-interventions work
+defines estimands for a model whose predictions trigger
+treatment~\citep{sperrin2018msm, vangeloven2020prediction,
+keogh2024prediction, luijken2024estimands}, and the performative-prediction
+literature studies retraining under such feedback~\citep{perdomo2020performative,
+kabra2024limitations, lee2026partially}. None of this work decomposes an
+observed performance change into the contributions of its mechanisms.
 
-\paragraph{P4: contributions.}
-(i) A proposition showing that the attribution game is not well defined when
-one player is a policy induced by the audited model (Section~\ref{sec:break});
-(ii) a redefined decomposition in which the model-mediated component is a
-policy contrast and the remaining mechanisms are exogenous
-(Section~\ref{sec:estimand}); (iii) identification conditions by source of
-variation and a partial-identification result for the threshold-discontinuity
-design (Section~\ref{sec:ident}); (iv) a simulation showing that the naive
-decomposition attributes performative success to outcome-mechanism shift and
-reverses the retraining decision, and that AUROC and net benefit move in
-opposite directions in this regime (Section~\ref{sec:sim}).
+\paragraph{P4: contributions.} We make three contributions.
+(i)~\emph{Non-identification of the attribution game}
+(Section~\ref{sec:break}). Each coalition value of the game of
+\citet{zhang2023attributing} is a domain-adaptation problem in the sense of
+\citet{boeken2024evaluating}, with the pre-deployment period as source. If
+standard care never treats the patients that only the alert flags, absolute
+continuity fails there, and the game is not identified from the two periods
+without assuming the outcome-mechanism stability it is meant to test; its
+importance-weighting estimator then fails silently, with a bias that does not
+shrink with sample size, as weighting estimators do under structural
+positivity violations~\citep{petersen2012positivity}. If standard care treats
+them rarely, the estimator is
+consistent but too variable to use.
+(ii)~\emph{A decomposition with the model as a policy, identified by design}
+(Sections~\ref{sec:estimand} and~\ref{sec:ident}). Shapley symmetry is the
+wrong axiom when one player is the decision variable; we replace that player's
+share with a policy contrast, the loss-scale analogue of the deployment effect
+of \citet{boeken2024evaluating}, inside the decomposition of a performance
+change. A randomised unalerted arm, the holdout set of \citet{liley2021model}
+and \citet{haidarwehbe2025holdout}, identifies the policy term but cannot
+separate a covariate shift caused by deployment from exogenous shift; a
+site-level stepped wedge with random rollout order can. A threshold
+discontinuity identifies only the local effect of the alert, which equals the
+policy's average effect only under assumptions on the effect curve above the
+threshold that our simulation violates.
+(iii)~\emph{Consequences for decisions, in simulation}
+(Section~\ref{sec:sim}). The standard decomposition books the alert's success
+to outcome-mechanism shift, with narrow, well-calibrated intervals for the
+wrong estimand, so nothing in its output warns the analyst; a keep-or-refit
+rule fed by it refits an effective model and loses the benefit. We reproduce the oscillation of naive retraining predicted by
+Theorem~1 of \citet{liley2021model} in an alert-threshold setting and add that
+holding the alert rate fixed stops the oscillation, which removes the loss
+under a homogeneous treatment effect but still loses a third of the benefit
+under a heterogeneous one, that the dashboard metric and patient
+benefit move in antiphase, and that observed AUROC and standard net benefit
+fall while the alert averts more events, a result complementary to Section~3.1
+of \citet{liley2021model}.
 
 %==============================================================================
 \section{Setting}
@@ -121,6 +169,23 @@ Outcomes follow $P_e(Y \mid X, A)$, which may itself differ between
 environments through $U$. The graph is
 $X \to \rhat \to A \to Y$, $X \to A$, $X \to Y$, with $U$ entering $X$, $A$,
 $Y$.
+
+\paragraph{Clinical task.} We fix one task throughout. The population is adult
+ward inpatients, scored at a prediction time during the admission; the outcome
+$Y$ is deterioration within 12 hours, defined as ICU admission or in-hospital
+death. An alert ($\rhat > \tau$) triggers a bedside review by the ward team, who
+may start early treatment or escalate care; $A = 1$ denotes that action.
+Without the model, standard care acts on clinical suspicion: patients whose
+deterioration is apparent at the bedside are reviewed and treated early, and
+other patients rarely are. The model adds value for the patients it flags whom
+clinicians would not have suspected; before deployment such patients were
+almost never treated, which is the support condition that
+Section~\ref{sec:break} turns on. The simulator of Section~\ref{sec:sim} encodes
+these policies: $\pi_0$ treats suspected patients with probability $0.8$ and
+others with probability $\varepsilon$, $\pi_1$ also treats alerted patients whom
+clinicians did not suspect with probability $0.85$, and treatment lowers the
+log-odds of deterioration by $\theta$. The semi-synthetic MIMIC-IV experiment
+(Appendix~\ref{app:mimic}) uses the same population, outcome and horizon.
 
 \paragraph{What monitoring sees.} Routine monitoring evaluates a loss $\ell$ on
 $(X, Y)$ pairs and reports
@@ -151,23 +216,33 @@ $R_{P_S}(f)$ is identified from samples of $e_0$ and $e_1$.
 
 \begin{proposition}[Degenerate pre-deployment policy and positivity failure]
 \label{prop:absence}
-Let $\mathcal{M}$ include the action mechanism $m_A = P(A \mid X, \rhat)$ with
-$m_A^{(0)} = \pi_0(a \mid x)$ and $m_A^{(1)} = \pi_1(a \mid x, \rhat)$. If there
-exists $x$ with $\pi_1(a \mid x, f(x)) > 0$ and $\pi_0(a \mid x) = 0$ for some
-$a$ (the deployment induces actions standard care never took), then for every
-coalition $S$ with $m_A \in S$ and $m_Y = P(Y \mid X, A) \notin S$, the hybrid
-$P_S$ requires $P_{e_0}(Y \mid X = x, A = a)$ outside the support of $e_0$.
-Assumption~\ref{ass:switch} fails, the density-ratio weights are undefined, and
-$\phi_k(v)$ is not identified from $(e_0, e_1)$ data for any $k$.
+Let $\mathcal{M} = \{P(X), m_A, m_Y\}$ with action mechanism
+$m_A = P(A \mid X, \rhat)$, $m_A^{(0)} = \pi_0(a \mid x)$,
+$m_A^{(1)} = \pi_1(a \mid x, \rhat)$, and outcome mechanism
+$m_Y = P(Y \mid X, A)$. Suppose that for some action $a$ the set
+$\mathcal{X}_a = \{x : \pi_1(a \mid x, f(x)) > 0 = \pi_0(a \mid x)\}$ has positive
+probability in both periods (the deployment induces actions standard care never
+took). Then for every coalition $S$ with $m_A \in S$ and $m_Y \notin S$,
+$R_{P_S}(f)$ depends on $P_{e_0}(Y \mid X = x, A = a)$ for $x \in \mathcal{X}_a$,
+which the pre-deployment period never observes: Assumption~\ref{ass:switch}
+fails and the importance weights $\pi_1 / \pi_0$ are unbounded on
+$\mathcal{X}_a$. Unless the outcome mechanism is assumed unchanged on
+$\mathcal{X}_a$, which is part of what the attribution is meant to assess,
+$(e_0, e_1)$ data in general identify neither $\phi_{m_A}(v)$ nor
+$\phi_{m_Y}(v)$, and identify $\phi_{P(X)}(v)$ only if the covariate
+distribution is unchanged on $\mathcal{X}_a$.
 \end{proposition}
 
-\noindent\emph{Reading.} The score $\rhat = f(X)$ is computable in $e_0$, so
-the action mechanism is not absent before deployment; it is degenerate in
-$\rhat$. Taking the union graph of both environments therefore does not
-rescue the game: the failure is positivity, not graph coverage. The
-counterfactual ``only the policy changed'' asks what standard-care outcomes
-would have been under actions standard care never produced, and no sample
-answers it. \todo{Remark: performativity enters a second time in the update
+\noindent\emph{Reading.} This is the absolute-continuity condition of
+\citet{boeken2024evaluating}, applied to each coalition value with the
+pre-deployment period as source. The score $\rhat = f(X)$ is computable in
+$e_0$, so the action mechanism is not absent before deployment; it is
+degenerate in $\rhat$. Taking the union graph of both environments therefore
+does not rescue the game: the failure is positivity, not graph coverage. The
+counterfactual ``only the policy changed'' asks how the pre-deployment outcome
+mechanism would have responded to actions standard care never took; no
+pre-deployment sample answers it, and post-deployment samples answer it only
+for the post-deployment mechanism. \todo{Remark: performativity enters a second time in the update
 step, since $R_{P_S}(f)$ depends on $f$ through $P_S$ as well as through the
 loss; any update derived from the attribution changes the environment the
 attribution was computed in (Section~\ref{sec:estimand}).}
@@ -175,8 +250,9 @@ attribution was computed in (Section~\ref{sec:estimand}).}
 \begin{proposition}[Marginal attribution misattributes performative success]
 \label{prop:misattr}
 Suppose the game is run on the marginal factorisation
-$\mathcal{M}' = \{P(X), P(Y \mid X)\}$, as in monitoring pipelines where $A$ is
-not logged. Let the only difference between $e_0$ and $e_1$ be
+$\mathcal{M}' = \{P(X), P(Y \mid X)\}$, as in monitoring pipelines that
+evaluate $(X, Y)$ pairs without linking alerts to actions. Let the only
+difference between $e_0$ and $e_1$ be
 $\pi_0 \to \pi_1$, with $P(X)$ and $P(Y \mid X, A)$ unchanged, and let the
 model-triggered action reduce risk, $P(Y{=}1 \mid x, a{=}1) < P(Y{=}1 \mid x,
 a{=}0)$ on the alerted region $\{x : f(x) \geq \tau\}$. Then
@@ -188,9 +264,10 @@ change is attributed to a shift in the outcome mechanism.
 $f$ on $e_1$ data. The retrained model learns $\E_{e_1}[Y \mid X]$, which
 encodes the benefit of the intervention on the alerted region, lowers risk
 scores there, and on redeployment removes the alerts that produced the benefit.
-This is the mechanism by which naive retraining is suboptimal under
-performativity~\citep{kabra2024limitations}, now traced to a specific
-misattribution.
+This is the updating failure of \citet[Theorem~1]{liley2021model}, and an
+instance of the suboptimality of naive retraining under
+performativity~\citep{kabra2024limitations}; the misattribution supplies the
+reason a monitoring team would retrain.
 
 %==============================================================================
 \section{A decomposition with the model as a policy}
@@ -213,10 +290,14 @@ discrimination while improving outcomes; that is the premise.
 \end{equation}
 where $\Delta_\pi = R_{e_1}(f; \pi_1) - R_{e_1}(f; \pi_0)$ is a policy contrast
 evaluated entirely within the post-deployment environment, so it never requires
-$e_0$ outcomes under $e_1$ actions. The first two terms are exogenous and
-remain a Shapley game over $\{P(X), P(Y \mid X, A)\}$ with the policy fixed at
-$\pi_0$, which is well defined when the needed standard-care responses have
-support in both environments. The exact identity assigns interactions by a
+$e_0$ outcomes under $e_1$ actions. The first two terms describe the change
+under standard care. They are exogenous unless deployment itself moves the
+patient mix, in which case the $X$ term absorbs that shift
+(Section~\ref{sec:sim}, F5). They form a Shapley game over
+$\{P(X), P(Y \mid X, A)\}$ with the policy fixed at $\pi_0$, identified when
+the standard-care responses it needs have support in both environments and
+post-deployment outcomes under $\pi_0$ are observed, as in a randomised
+unalerted arm. The exact identity assigns interactions by a
 policy-last ordering; no residual is omitted. The policy is last because its
 post-deployment value is the decision contrast in the current patient mix.
 
@@ -240,12 +321,17 @@ example.}
 action, timing, outcome.
 
 \paragraph{Sources of identifying variation, strongest first.}
-(1) Randomised or stepped-wedge rollout: $\Delta_\pi$ identified by design.
-(2) Staggered implementation across sites: identified under parallel trends.
+(1) Patient-level randomisation of the alert (an unalerted holdout arm):
+identifies $\Delta_\pi$, the prospective contrast, by design.
+(2) Site-level rollout: with random rollout order, a stepped wedge identifies
+the retrospective contrast and the split of the covariate shift into
+deployment-caused and exogenous parts at crossover; with non-random order it
+does so only if trends in the loss, not merely in the covariates, are parallel
+(Table~\ref{tab:identification}).
 (3) Alerting-threshold discontinuity: identifies the \emph{local} effect at
-$\rhat = \tau$.
-(4) Site or physician practice variation: identified under an instrument-type
-assumption.
+$\rhat = \tau$ (Proposition~\ref{prop:rd}).
+(4) Site or physician practice variation: may identify $\Delta_\pi$ under
+instrumental-variable assumptions; not studied here.
 
 \begin{table*}[t]
 \centering\small
@@ -274,18 +360,32 @@ Staggered non-random rollout & If loss trends are parallel & No & If loss trends
 
 \begin{proposition}[Local-to-global gap under threshold discontinuity]
 \label{prop:rd}
-The regression-discontinuity design identifies
-$\theta(\tau) = \lim_{r \downarrow \tau} \E[Y \mid \rhat = r] -
-\lim_{r \uparrow \tau} \E[Y \mid \rhat = r]$. The policy term $\Delta_\pi$ is an
-integral of the effect curve $\theta(r)$ over the alerted region. Without
-further assumptions $\Delta_\pi$ is partially identified; under (a) effect
-homogeneity it is point identified as $\theta(\tau) \cdot P(\rhat \geq \tau)$,
-under (b) monotonicity of $\theta(\cdot)$ in $r$ it is bounded by
-$[\,\theta(\tau) P(\rhat \geq \tau),\ \bar\theta\, P(\rhat \geq \tau)\,]$ with
-$\bar\theta$ the maximal plausible effect, and the bounds tighten as the
-alerted mass concentrates near $\tau$. \todo{Make precise; this single result
-is a sufficient theoretical contribution for the workshop.}
+Let the alert fire when $\rhat \geq \tau$, let $\pi_1 = \pi_0$ below $\tau$,
+and let $\theta(r) = \E[Y(\pi_1) - Y(\pi_0) \mid \rhat = r]$ be the
+intention-to-treat effect curve of the alert on the event probability, with
+$F$ the distribution of $\rhat$ after deployment and
+$\bar F(\tau) = P(\rhat \geq \tau)$. If $\E[Y(\pi_0) \mid \rhat = r]$ is
+continuous at $\tau$, the post-deployment jump
+$\lim_{r \downarrow \tau} \E[Y \mid \rhat = r] -
+\lim_{r \uparrow \tau} \E[Y \mid \rhat = r]$ identifies $\theta(\tau)$. The
+policy's effect on the event rate is
+$\Theta = \int_{r \geq \tau} \theta(r)\, dF(r)$, and for the Brier score the
+policy term of~\eqref{eq:decomp} is
+$\Delta_\pi = \int_{r \geq \tau} (1 - 2r)\, \theta(r)\, dF(r)$; the
+discontinuity alone identifies neither. (a) If $\theta$ is constant on
+$[\tau, 1]$, then $\Theta = \theta(\tau)\, \bar F(\tau)$ and
+$\Delta_\pi = \theta(\tau) \int_{r \geq \tau} (1 - 2r)\, dF(r)$. (b) If $\theta$
+has constant sign and $|\theta|$ is monotone on $[\tau, 1]$, then
+$|\theta(\tau)|\, \bar F(\tau)$ bounds $|\Theta|$ from below when the effect
+grows with the score and from above when it shrinks.
 \end{proposition}
+
+\noindent\emph{Reading.} Which case applies is a clinical question: the effect
+shrinks above the threshold when standard care already treats most high-score
+patients. In our simulation the curve is neither constant nor monotone: the
+effect strengthens from $-0.34$ just above the threshold to $-0.42$, then
+fades to near zero at high scores, and the local jump overstates the average
+effect among alerted patients by $14\%$ (Appendix~\ref{app:rd}).
 
 %==============================================================================
 \section{Simulation}
@@ -392,9 +492,11 @@ observed Brier score rises by $+0.0268$ [$+0.0264$, $+0.0273$]. Without action l
 two-player game assigns $+0.0271$ [$+0.0266$, $+0.0275$] to $P(Y \mid X)$ and
 $-0.0002$ [$-0.0004$, $+0.0000$] to $P(X)$, with estimated density ratios: all of the
 policy's contribution ($+0.0269$) is booked to the outcome mechanism, precisely
-(single-run SD $0.0023$), and no diagnostic fires. The monitor's own bootstrap
-interval covers the marginal game it estimates in $93\%$ of replicates and
-the policy-contrast outcome term in $0\%$. The union-graph estimator is right on
+(single-run SD $0.0023$), and nothing in the monitor's output signals a
+problem: its own bootstrap interval covers the marginal game it estimates in
+$93\%$ of replicates and the policy-contrast outcome term in $0\%$. The alert
+leaves a trace only for an analyst who looks for it: post-deployment event
+rates drop discontinuously at the alert threshold (Appendix~\ref{app:rd}). The union-graph estimator is right on
 average ($+0.0270$ [$+0.0237$, $+0.0305$]) but unusable in any single run (SD $0.017$,
 effective sample size $107$ of $20{,}000$); clipping restores the variance and
 reverses the sign ($-0.0033$ [$-0.0040$, $-0.0027$]). The proposed decomposition
@@ -421,7 +523,8 @@ the wrong sign.}\label{fig:positivity}\end{figure*}
 returns $-0.0088$ [$-0.0090$, $-0.0086$] against a target of $+0.0269$, with an
 effective sample size of $15{,}993$ of $20{,}000$ and no extreme weight: the
 pre-deployment sample contains no treated patient in the alert-only region, so
-the estimator silently omits the cell. Scaling $n$ from $2 \times 10^4$ to
+the estimator silently omits the cell, the usual consequence of a structural
+positivity violation~\citep{petersen2012positivity}. Scaling $n$ from $2 \times 10^4$ to
 $4 \times 10^5$ leaves the bias at $-133\%$ of the target while an analyst's 95\%
 bootstrap interval narrows from [$-0.0102$, $-0.0077$] to
 [$-0.0091$, $-0.0085$] (medians over replicates) and excludes the target in
@@ -482,15 +585,17 @@ $5.77$ [$5.50$, $6.04$] of $9.44$ points. Refitting on untreated patients and
 conditioning with interactions lose $1.71$ [$1.60$, $1.83$] points in that
 setting: when the score class cannot represent the untreated risk, the fit
 depends on which patients the current policy leaves untreated. Weighting the
-untreated patients by the inverse of their logged probability of remaining
-untreated removes that dependence and keeps the benefit in all six settings
-($9.50$ [$9.40$, $9.59$] misspecified, fixed threshold). Refitting on
-untreated or unalerted patients is an observational version of the holdout
-update of \citet{liley2021model} and \citet{haidarwehbe2025holdout}, whose
-holdout is a random subset of patients withheld from the score; our additions
-are the comparison under heterogeneous effects and misspecification and the
-weighted form, which needs the alert exposure and either the response
-probabilities or a model for them (Appendix~\ref{app:retrain}).
+untreated patients by the inverse of their probability of remaining untreated,
+the marginal-structural-model weighting that \citet{sperrin2018msm} use for
+treatment drop-in, removes that dependence and keeps the benefit in all six
+settings ($9.50$ [$9.40$, $9.59$] misspecified, fixed threshold); it needs the
+alert exposure and either the response probabilities or a model for them
+(Appendix~\ref{app:retrain}). Refitting on untreated or unalerted patients is
+an observational version of the holdout update of \citet{liley2021model} and
+\citet{haidarwehbe2025holdout}, whose holdout is a random subset of patients
+withheld from the score. Our addition is the comparison of these updates under
+heterogeneous effects and a misspecified score class, which shows that the
+weighting is what removes the dependence on the current policy.
 Every action-log correction assumes the logged covariates capture the
 clinician's treatment decision.
 
@@ -502,7 +607,7 @@ window after the decision, by scenario, under the fixed alert threshold (top)
 and the rate-held threshold (bottom). Points are means over 200 independent
 replicates per scenario, with 95\% bootstrap intervals over replicates (most
 are smaller than the markers). Open square: refit when the
-exogenous share exceeds one half); filled square: refit when the
+exogenous share exceeds one half; filled square: refit when the
 outcome-mechanism share exceeds one half; diamond: the same rule driven by the
 monitor without action logs.}\label{fig:decision}\end{figure}
 
@@ -522,7 +627,9 @@ naive refitting on standard-care data then imports standard care's treatment
 of suspicious patients into the score, lowers the alert rate from $67\%$ to
 $54\%$ and costs $4.6$ points. Mapping components to actions removes this
 loss: refitting only when the outcome-mechanism term carries more than half of
-the change has zero regret in all four scenarios. Driven by the monitor
+the change has zero regret in all four scenarios at the calibrated operating
+point; at a $6.6\%$ event rate it loses $0.55$ points in S4, where the outcome
+share sits at the cut-off (Appendix~\ref{app:robustness}). Driven by the monitor
 without action logs, the same rule refits in S3 and loses the whole benefit,
 because the monitor books the policy term to the outcome mechanism. Two
 qualifications. With the alert rate held, no two of the rules in
@@ -546,8 +653,9 @@ prospective policy contrasts (oracle) and the randomised-arm estimate with
 
 \paragraph{F5: deployment also moves the patient mix
 (Figure~\ref{fig:triage}).} Adding a triage effect, a covariate shift caused by
-deployment itself, violates the independent-shift clause of Zhang et al.'s
-assumptions: one event moves both $\pi$ and $P(X)$. The monitor books the whole
+deployment itself, breaks Assumption~\ref{ass:switch} a second way: one event
+moves both $\pi$ and $P(X)$, so the two cannot be switched separately. The
+monitor books the whole
 observed mix shift to $P(X)$, and so does the $X$ term of the proposed
 decomposition, whose exogenous game sees only the realised covariate ratio.
 Under a mixed shift the truth for $P(X)$ \emph{decreases} with triage while the
@@ -654,18 +762,59 @@ update rules.}
 \section{Related work}
 \label{sec:related}
 
-\todo{Half a page, third person throughout. Attribution:
-\citep{zhang2023attributing} (ICML 2023), \citep{budhathoki2021rootcauses}
-(AISTATS 2021), \citep{cai2023disde}, \citep{gordaliza2025causal} (MedEurIPS 2025
-workshop). Performativity: \citep{perdomo2020performative},
-\citep{kabra2024limitations} (ICML 2024 workshop), \citep{lee2026partially}.
-Prediction under interventions: \citep{sperrin2018msm},
-\citep{vangeloven2020prediction}, \citep{lin2021scoping}, \citep{keogh2024prediction},
-\citep{luijken2024estimands}. Victims of their own success:
-\citep{lenert2019victims}, \citep{sperrin2019explicit}, \citep{balcarcel2025feedback}.
-Monitoring and governance that detect or regulate updates without attributing:
-\citep{wu2024regulating} (CHIL 2024), \citep{gonzalez2024regulating},
-\citep{afdideh2026aegis}, \citep{guan2026detecting}.}
+\paragraph{Attributing performance change.} \citet{zhang2023attributing}
+attribute a change in model performance to distribution shifts with a
+cooperative game whose players are the mechanisms of a causal factorisation,
+valued by Shapley values and estimated by importance weighting.
+\citet{budhathoki2021rootcauses} attribute a change in a joint distribution to
+changes in its causal mechanisms; \citet{cai2023disde} decompose a performance
+drop into covariate-shift terms and a term for a changed relationship between
+features and outcome; \citet{gordaliza2025causal} apply causal attribution to
+performance gaps in medical imaging. All treat every mechanism as exogenous to
+the audited model.
+
+\paragraph{Performativity and model updating.} \citet{perdomo2020performative}
+formalise performative prediction, in which a deployed model changes the
+distribution it is evaluated on, and analyse repeated retraining.
+\citet{kabra2024limitations} show that naive retraining can be provably
+suboptimal under such shifts, and \citet{lee2026partially} let the distribution
+respond both to the model and to exogenous drift. For clinical risk scores,
+\citet{liley2021model} show that naive updating either converges to a score
+that predicts its own effect or oscillates between two values, and propose a
+holdout set, patients for whom the score is not computed, as a safe update
+strategy; \citet{haidarwehbe2025holdout} derive the optimal size of that set.
+\citet{boeken2024evaluating} treat the deployment of a decision support system
+as a causal domain shift, define deployment and retraining effects, and give
+conditions under which they are identified, assuming that deployment leaves the
+covariate distribution unchanged. We use the holdout device for attribution and
+their absolute-continuity condition to locate where the game loses
+identification; the site-level design of Section~\ref{sec:ident} separates the
+deployment-caused covariate shift that their assumptions exclude.
+
+\paragraph{Prediction under interventions.} A line of work defines the estimand
+for a model whose predictions trigger treatment~\citep{sperrin2018msm, vangeloven2020prediction, lin2021scoping,
+keogh2024prediction, luijken2024estimands}, and several authors warn that a
+successful model can become a victim of its own success~\citep{lenert2019victims,
+sperrin2019explicit, balcarcel2025feedback}. This work targets prediction and
+validation, not the attribution of a monitored change.
+
+\paragraph{Monitoring and governance.} \citet{feng2024designing} compare
+monitoring strategies for a deployed algorithm under performativity, across
+monitoring criteria and observational or interventional data. Regulatory and
+post-market work analyses device updates~\citep{wu2024regulating}, the
+regulation of devices that evolve~\citep{gonzalez2024regulating} and
+governance infrastructure~\citep{afdideh2026aegis}, and
+\citet{guan2026detecting} detect degradation under data shift.
+These works detect or govern a change; they do not attribute it.
+
+\paragraph{Randomised trials of alerts.} Alerts change care, and their effect on
+outcomes varies. In a trial that randomised patients at six hospitals, alerts
+for acute kidney injury changed some care processes but not the primary
+outcome~\citep{wilson2021aki}; in a trial that randomised 74 clinical units in
+two health systems, an early warning system built on nursing surveillance data
+lowered in-hospital mortality and length of stay~\citep{rossetti2025concern}.
+Randomising the alert by patient or by unit, as these trials do, is the kind of
+identifying variation that Section~\ref{sec:ident} requires.
 
 %==============================================================================
 \section{Limitations and responsible-use statement}
@@ -676,9 +825,18 @@ rejection. Half a page.}
 
 \paragraph{Limitations.} Results are theoretical and synthetic, or
 semi-synthetic where MIMIC-IV covariates and outcomes are used with a
-simulated deployment; no real deployment logs are analysed. The decomposition is order-dependent in its
-split of interaction terms. The RD result identifies a local effect; the global
-policy term is bounded, not pointed, without homogeneity.
+simulated deployment; no real deployment logs are analysed. The calibrated
+operating point is deliberately strong: an acted-upon alert cuts the odds of
+the event by a factor of about 12 ($\theta = 2.5$), $28\%$ of patients are
+flagged only by the alert, and the untreated event rate is about $40\%$.
+Magnitudes such as events averted scale with these choices; the direction of
+the misattribution does not (Proposition~\ref{prop:misattr}), and
+Figure~\ref{fig:utility} and Table~\ref{tab:prevalence} vary the effect and the
+event rate. The decomposition is order-dependent in its split of interaction
+terms. The threshold discontinuity identifies only a local effect, and the
+conditions under which it extends to the policy term fail in our own
+simulation. A randomised unalerted arm assumes no interference between arms,
+which shared ward staff, alert fatigue and clinicians' learning can violate.
 
 \paragraph{Responsible use.} From routine observational post-deployment data,
 model-mediated improvement is not identifiable; any attribution produced
@@ -686,7 +844,10 @@ without a source of identifying variation is a sensitivity analysis, not
 evidence. Misattribution has a concrete clinical cost in both directions:
 attributing performative success to outcome-mechanism shift retrains an
 effective model and removes its benefit; attributing a genuine outcome shift to
-the model's success leaves a degraded model in place. The method requires
+the model's success leaves a degraded model in place. A randomised unalerted
+arm withholds a possibly beneficial alert from some patients; its size trades
+that cost against the precision of the attribution, a trade-off
+\citet{haidarwehbe2025holdout} analyse for model updating. The method requires
 logging of alert exposure and action, which has privacy and workflow
 implications that should be governed under existing post-market surveillance
 frameworks~\citep{gonzalez2024regulating}. Nothing here should be read as
@@ -699,7 +860,25 @@ evaluation of patient outcomes.
 \appendix
 \section{Threshold-discontinuity experiment}
 \label{app:rd}
-\todo{Figure and text for the RD experiment (merged\_expE): local jump, effect curve, bounds; ITT scale; dilution by treated suspicious patients below the threshold.}
+At the S3 operating point, each of 40 replicates draws $80{,}000$
+post-deployment patients and fits a local linear regression of the observed
+outcome on $\rhat - \tau_r$, with separate slopes on each side of the
+threshold, within a bandwidth of $0.04$. The jump is an intention-to-treat
+effect: it compares alerted with unalerted patients at the threshold, whatever
+treatment they then received. It estimates $\theta(\tau_r)$ as $-0.332$
+[$-0.338$, $-0.326$], while the average policy effect among alerted patients,
+$\E[Y(\pi_1) - Y(\pi_0) \mid \rhat \geq \tau_r]$ from the simulator's potential
+outcomes, is $-0.291$. Both are smaller than the effect of treatment against no
+treatment among the alerted ($-0.405$): suspicious patients near the threshold
+are treated under both policies, and only $85\%$ of alerts are acted on. The
+effect curve $\theta(r)$, averaged in 12 score bins from $0.45$ to $0.95$,
+strengthens from $-0.34$ just above the threshold to $-0.42$ near
+$\rhat = 0.64$, because a fixed logit effect removes more probability at
+higher baseline risk, then fades to $-0.07$ near $0.85$ and to about zero above
+$0.87$, because standard care already treats most high-score patients. Neither
+condition of Proposition~\ref{prop:rd} holds, and the local jump overstates the
+average effect by $14\%$. \todo{Figure of the effect curve; Brier-scale policy
+term computed from the curve.}
 
 \section{Robustness of Experiments A and B}
 \label{app:robustness}
@@ -873,11 +1052,56 @@ produced by a local run on credentialed data (\texttt{docs/E6\_MIMIC.md}).}
 \IfFileExists{tables/e6_sensitivity.tex}{\input{tables/e6_sensitivity}}{}
 
 \section{Proofs}
-\todo{Proposition~\ref{prop:absence}: exhibit $x, a$ with support mismatch;
-show the hybrid requires an undefined conditional; conclude non-identification.
-Proposition~\ref{prop:misattr}: with $P(X)$ unchanged, $v(\{P(X)\}) = 0$ and
-$v(\{P(Y|X)\}) = v(\mathcal{M}') = \Delta R$, so Shapley values follow by
-efficiency. Proposition~\ref{prop:rd}: write $\Delta_\pi = \int_\tau^1
-\theta(r)\, dP(\rhat = r)$ and bound.}
+For a binary outcome, write $\ell_y(x) = \ell(f(x), y)$; for the Brier score
+$\ell_1 - \ell_0 = 1 - 2f(x)$.
+
+\emph{Proposition~\ref{prop:absence}.} Let
+$g_0(x) = P_{e_0}(Y{=}1 \mid X = x, A = a)$ on $\mathcal{X}_a$. Because
+$\pi_0(a \mid x) = 0$ there, the distribution of $(X, A, Y)$ in $e_0$ does not
+depend on $g_0$, and the distribution in $e_1$ depends only on the
+post-deployment outcome mechanism; processes that differ only in $g_0$ give the
+same data. A coalition $S$ with $m_A \in S$ and $m_Y \notin S$ puts mass
+$p_S(x)\, \pi_1(a \mid x, f(x)) > 0$ on $(x, a)$, $x \in \mathcal{X}_a$, where
+$p_S$ is the covariate density of the period that supplies $P(X)$, and its
+expected loss there is $\ell_0(x) + g_0(x)\{\ell_1(x) - \ell_0(x)\}$. A
+perturbation $\delta$ of $g_0$ therefore changes $v(S)$ by
+$\int_{\mathcal{X}_a} p_S\, \pi_1\, (\ell_1 - \ell_0)\, \delta\, dx$, and the
+weights $\pi_1/\pi_0$ are infinite on $\mathcal{X}_a$. Shapley values are linear
+in $v$. With three players, $\{m_A\}$ and $\{m_A, P(X)\}$ enter $\phi_{m_A}$
+with weights $1/3$ and $1/6$ and $\phi_{m_Y}$ with weights $-1/6$ and $-1/3$;
+choosing $\delta$ with the sign of $\ell_1 - \ell_0$ moves both coalition values
+the same way, so neither Shapley value is identified. The only non-identified
+term of $\phi_{P(X)}$ is $\frac{1}{6}\{v(\{P(X), m_A\}) - v(\{m_A\})\}$, which
+changes by
+$\frac{1}{6} \int_{\mathcal{X}_a} (p_{e_1} - p_{e_0})\, \pi_1\,
+(\ell_1 - \ell_0)\, \delta\, dx$; this vanishes for every $\delta$ only if
+$p_{e_1} = p_{e_0}$ almost everywhere on the part of $\mathcal{X}_a$ where
+$\ell_1 \neq \ell_0$. Assuming the outcome mechanism unchanged on
+$\mathcal{X}_a$ sets $g_0$ equal to its post-deployment value, which $e_1$
+identifies. $\square$
+
+\emph{Proposition~\ref{prop:misattr}.} With $P(X)$ unchanged, switching only
+$P(X)$ reproduces $e_0$ and switching only $P(Y \mid X)$ reproduces $e_1$, so
+$v(\{P(X)\}) = 0$ and $v(\{P(Y \mid X)\}) = v(\mathcal{M}') = \Delta R$. Then
+$\phi_{P(X)} = \frac12\{v(\{P(X)\}) - v(\emptyset)\} +
+\frac12\{v(\mathcal{M}') - v(\{P(Y \mid X)\})\} = 0$, and by efficiency
+$\phi_{P(Y \mid X)} = \Delta R$. The risk reduction on the alerted region makes
+$P_{e_1}(Y \mid X) \neq P_{e_0}(Y \mid X)$ there, so the whole change is the
+policy's. $\square$
+
+\emph{Proposition~\ref{prop:rd}.} The policies agree below $\tau$, so
+$\E[Y \mid \rhat = r] = \E[Y(\pi_0) \mid \rhat = r]$ for $r < \tau$ and
+$\E[Y(\pi_0) \mid \rhat = r] + \theta(r)$ for $r \geq \tau$; with
+$\E[Y(\pi_0) \mid \rhat = r]$ continuous at $\tau$, the jump is the right limit
+of $\theta$ at $\tau$, written $\theta(\tau)$. $\Theta$ integrates the policy's
+effect over $F$. For a prediction $r$ and binary $Y$,
+$(r - Y)^2 = r^2 + (1 - 2r) Y$, so
+$\Delta_\pi = \E[(1 - 2\rhat)\{Y(\pi_1) - Y(\pi_0)\}] =
+\int_{r \geq \tau} (1 - 2r)\, \theta(r)\, dF(r)$. Nothing in the jump constrains
+$\theta$ on $(\tau, 1]$, so neither quantity is identified without a
+restriction. Case (a) is immediate. In case (b), $|\theta(r)| \geq
+|\theta(\tau)|$ for $r \geq \tau$ when $|\theta|$ is nondecreasing, so
+$|\Theta| \geq |\theta(\tau)|\, \bar F(\tau)$, and the inequality reverses when
+$|\theta|$ is nonincreasing. $\square$
 
 \end{document}

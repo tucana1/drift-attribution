@@ -136,10 +136,12 @@ by the report step are committed; `data/` stays untracked.
   four cells. The control change cancels, so this is a within-site,
   covariate-adjusted before/after comparison: it holds only without
   outcome-mechanism drift, which E5 does not simulate. Keep "No" or qualify it.
-- **Threshold-discontinuity appendix** (`\todo` in Appendix A). The numbers are
-  in `merged_expE7.json`, part E, including the policy-effect curve. The curve
-  is hump-shaped and falls to zero at high scores, so condition (b) of
-  Proposition 3 (monotone effect) does not hold in the simulation.
+- **Threshold-discontinuity appendix.** Appendix A now reports the experiment
+  from `merged_expE7.json`, part E, and Proposition 3 is restated: it separates
+  the alert's effect on the event rate from the Brier-scale policy term and
+  says which monotone direction gives which bound. The simulated curve is
+  hump-shaped, so neither condition holds there, and the text says so. Still
+  open: a figure of the effect curve and the Brier-scale term computed from it.
 
 ## 3. Reference checks (L2/L3)
 
