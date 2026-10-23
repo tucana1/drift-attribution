@@ -666,7 +666,8 @@ Table~\ref{tab:decision} differ by more than
 $1.3$ points in S1 to S4, whose shifts leave the ranking of patients unchanged
 (Appendix~\ref{app:decision}). And keeping or refitting naively are not the
 only options: refitting on untreated patients, which needs the action log
-rather than the randomised arm, matches the better of the two in S1 and S3 and
+rather than the randomised arm, matches the better of the two under the fixed
+threshold in S1 and S3 and
 beats both in S2 ($+1.7$ points) and S4 ($+4.9$), because it recalibrates to
 the outcome shift without absorbing any treatment. Harm-weighted versions
 leave the ranking unchanged for harms up to $0.2$ events per unnecessary
@@ -687,7 +688,8 @@ moves both $\pi$ and $P(X)$, so the two cannot be switched separately. The
 monitor books the whole
 observed mix shift to $P(X)$, and so does the $X$ term of the proposed
 decomposition, whose exogenous game sees only the realised covariate ratio.
-Under a mixed shift the truth for $P(X)$ \emph{decreases} with triage while the
+Under a mixed shift the oracle Shapley target for $P(X)$ \emph{decreases} with
+triage while the
 monitor's attribution increases. Two policy estimands separate: the
 retrospective contrast (undo deployment, including its triage effect) grows
 from $+0.027$ to $+0.094$ as triage rises to $0.5$, while the prospective
