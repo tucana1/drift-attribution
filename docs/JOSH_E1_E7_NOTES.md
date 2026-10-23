@@ -70,9 +70,12 @@ when the proposed decomposition assigns more than half of the change to
 exogenous mechanisms) avoids the 11.5-point losses of always refitting in S3
 and S4 but refits in S1, where naive refitting on standard-care data costs 4.6
 points; refitting only when the outcome-mechanism term dominates has zero
-regret in S1-S4. The monitor-driven rule refits in S3 and loses everything.
-With a rate-held threshold the decision matters little (under 1.3 points).
-Refitting on untreated patients dominates every keep-or-naive-refit rule.
+regret in S1-S4 at the calibrated operating point (it loses 0.55 points in S4
+at 6.6% prevalence). The monitor-driven rule refits in S3 and loses
+everything. With a rate-held threshold the decision matters little (under 1.3
+points). Under the fixed threshold, refitting on untreated patients matches or
+beats every keep-or-naive-refit rule; with the rate held it loses 1.2 points
+in S1, as never refitting does.
 
 **E7 (new).** `exp_E7_intervals.py` reruns Experiments A, B, D, E and F with an
 independent seed block per row (decision 3) and stores every replicate, so all

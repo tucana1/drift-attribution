@@ -136,10 +136,12 @@ by the report step are committed; `data/` stays untracked.
   four cells. The control change cancels, so this is a within-site,
   covariate-adjusted before/after comparison: it holds only without
   outcome-mechanism drift, which E5 does not simulate. Keep "No" or qualify it.
-- **Threshold-discontinuity appendix** (`\todo` in Appendix A). The numbers are
-  in `merged_expE7.json`, part E, including the policy-effect curve. The curve
-  is hump-shaped and falls to zero at high scores, so condition (b) of
-  Proposition 3 (monotone effect) does not hold in the simulation.
+- **Threshold-discontinuity appendix.** Appendix A now reports the experiment
+  from `merged_expE7.json`, part E, and Proposition 3 is restated: it separates
+  the alert's effect on the event rate from the Brier-scale policy term and
+  says which monotone direction gives which bound. The simulated curve is
+  hump-shaped, so neither condition holds there, and the text says so. Still
+  open: a figure of the effect curve and the Brier-scale term computed from it.
 
 ## 3. Reference checks (L2/L3)
 
@@ -151,6 +153,20 @@ closed: Lenert 2019 and Sperrin 2019 volume and pages confirmed, arXiv
 Shift in Pathology Vision-Language Model" (key `guan2026detecting`), the
 Gonzalez et al. author list is complete (key `gonzalez2024regulating`, first
 posted December 2024), and Keogh and van Geloven 2024 has volume and pages.
+
+Novelty check (23 October): prior work already has parts of each
+contribution, and the draft now says so. Treatment use biases validation
+(Pajouheshnia et al. 2017) and effective interventions make a deployed model
+look decayed (Ansari et al. 2025), so the AUROC fall is cited as known and
+Proposition 2 is framed as formalising it. The policy-last split is an
+asymmetric Shapley value (Frye et al. 2020). Randomised withholding and
+weighting are used for monitoring (Corbin et al. 2023; Kim et al. 2025), and
+threshold discontinuities (Gallo et al. 2024) and staggered rollouts (Escobar
+et al. 2020) for evaluating alerts, so the contribution is stated as which
+term each design identifies. Also added: Singh et al. 2024, Feng et al. 2024
+(AISTATS), Schuler et al. 2020, van Amsterdam et al. 2025, Angrist and
+Rokkanen 2015. No DOI was found for Ansari et al. (NEJM AI 2(5)); add it if
+someone has journal access.
 
 ## 4. Assessed and not used
 
