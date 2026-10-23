@@ -154,6 +154,20 @@ Shift in Pathology Vision-Language Model" (key `guan2026detecting`), the
 Gonzalez et al. author list is complete (key `gonzalez2024regulating`, first
 posted December 2024), and Keogh and van Geloven 2024 has volume and pages.
 
+Novelty check (23 October): prior work already has parts of each
+contribution, and the draft now says so. Treatment use biases validation
+(Pajouheshnia et al. 2017) and effective interventions make a deployed model
+look decayed (Ansari et al. 2025), so the AUROC fall is cited as known and
+Proposition 2 is framed as formalising it. The policy-last split is an
+asymmetric Shapley value (Frye et al. 2020). Randomised withholding and
+weighting are used for monitoring (Corbin et al. 2023; Kim et al. 2025), and
+threshold discontinuities (Gallo et al. 2024) and staggered rollouts (Escobar
+et al. 2020) for evaluating alerts, so the contribution is stated as which
+term each design identifies. Also added: Singh et al. 2024, Feng et al. 2024
+(AISTATS), Schuler et al. 2020, van Amsterdam et al. 2025, Angrist and
+Rokkanen 2015. No DOI was found for Ansari et al. (NEJM AI 2(5)); add it if
+someone has journal access.
+
 ## 4. Assessed and not used
 
 See `docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md`: Synthetic Hospital (Park, Chen,

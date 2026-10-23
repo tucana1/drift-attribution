@@ -50,9 +50,9 @@ problem with the pre-deployment period as source, absolute continuity fails or
 nearly fails where only the alert triggers treatment, so the game is not
 identified from pre-deployment data or not usefully estimable, and its
 estimator can fail silently with a bias that does not shrink with sample size;
-(4) we replace the symmetric share of the
-model-mediated mechanism with a policy contrast, identified by a randomised
-unalerted arm (a holdout set in the sense of Liley et al.); when deployment also
+(4) we order the model-mediated mechanism last
+(an asymmetric Shapley value), so that its share is a policy contrast,
+identified by a randomised unalerted arm (a holdout set in the sense of Liley et al.); when deployment also
 moves the patient mix, the arm cannot separate that shift from exogenous change,
 which a site-level stepped wedge with random rollout order can; (5) in
 simulation the standard decomposition books the alert's
@@ -107,7 +107,12 @@ difficulty telling whether a model's inaccuracy comes from drift in the
 underlying system or from the effect of the intervention. That difficulty is
 the question of this paper. \citet{haidarwehbe2025holdout} derive the optimal
 size of such a holdout set, and \citet{feng2024designing} design monitoring
-strategies that account for performativity. Prediction-under-interventions work
+strategies that account for performativity. Treatment that follows a prediction
+makes the model look worse at validation~\citep{pajouheshnia2017accounting}
+and can make a deployed model look decayed~\citep{ansari2025challenges};
+feedback-aware monitors estimate the model's performance despite the feedback
+by randomising or weighting~\citep{corbin2023avoiding, kim2025monitoring}.
+Prediction-under-interventions work
 defines estimands for a model whose predictions trigger
 treatment~\citep{sperrin2018msm, vangeloven2020prediction,
 keogh2024prediction, luijken2024estimands}, and the performative-prediction
@@ -117,9 +122,12 @@ observed performance change into the contributions of its mechanisms.
 
 \paragraph{P4: contributions.} We make three contributions.
 (i)~\emph{Non-identification of the attribution game}
-(Section~\ref{sec:break}). Each coalition value of the game of
-\citet{zhang2023attributing} is a domain-adaptation problem in the sense of
-\citet{boeken2024evaluating}, with the pre-deployment period as source. If
+(Section~\ref{sec:break}). The attribution game inherits the
+absolute-continuity condition under which \citet{boeken2024evaluating}
+identify deployment effects, and loses identification where it fails: each
+coalition value of the game of \citet{zhang2023attributing} is a
+domain-adaptation problem in their sense, with the pre-deployment period as
+source. If
 standard care never treats the patients that only the alert flags, absolute
 continuity fails there, and the game is not identified from the two periods
 without assuming the outcome-mechanism stability it is meant to test; its
@@ -129,17 +137,22 @@ positivity violations~\citep{petersen2012positivity}. If standard care treats
 them rarely, the estimator is
 consistent but too variable to use.
 (ii)~\emph{A decomposition with the model as a policy, identified by design}
-(Sections~\ref{sec:estimand} and~\ref{sec:ident}). Shapley symmetry is the
-wrong axiom when one player is the decision variable; we replace that player's
-share with a policy contrast, the loss-scale analogue of the deployment effect
-of \citet{boeken2024evaluating}, inside the decomposition of a performance
-change. A randomised unalerted arm, the holdout set of \citet{liley2021model}
-and \citet{haidarwehbe2025holdout}, identifies the policy term but cannot
-separate a covariate shift caused by deployment from exogenous shift; a
-site-level stepped wedge with random rollout order can. A threshold
-discontinuity identifies only the local effect of the alert, which equals the
-policy's average effect only under assumptions on the effect curve above the
-threshold that our simulation violates.
+(Sections~\ref{sec:estimand} and~\ref{sec:ident}). For this problem the
+symmetric split is the wrong one: it gives half of the interaction between the
+policy and the covariate shift to the covariate shift, while the keep-or-refit
+decision needs the policy's effect in the shifted population. We order the
+policy last, an asymmetric Shapley value~\citep{frye2020asymmetric} whose
+ordering encodes the decision rather than a causal order; the policy's share is
+then a policy contrast, the loss-scale analogue of the deployment effect of
+\citet{boeken2024evaluating}. A randomised unalerted arm, the holdout
+set of \citet{liley2021model} and \citet{haidarwehbe2025holdout}, identifies
+the policy term but cannot separate a covariate shift caused by deployment from
+exogenous shift; a site-level stepped wedge with random rollout order can. A
+threshold discontinuity, already used to evaluate a deployed deterioration
+alert~\citep{gallo2024effectiveness}, identifies only the local effect of the
+alert, which equals the policy's average effect only under assumptions on the
+effect curve above the threshold that our simulation violates. The designs are
+standard; what we add is which term of the decomposition each identifies.
 (iii)~\emph{Consequences for decisions, in simulation}
 (Section~\ref{sec:sim}). The standard decomposition books the alert's success
 to outcome-mechanism shift, with narrow, well-calibrated intervals for the
@@ -148,10 +161,14 @@ rule fed by it refits an effective model and loses the benefit. We reproduce the
 Theorem~1 of \citet{liley2021model} in an alert-threshold setting and add that
 holding the alert rate fixed stops the oscillation, which removes the loss
 under a homogeneous treatment effect but still loses a third of the benefit
-under a heterogeneous one, that the dashboard metric and patient
-benefit move in antiphase, and that observed AUROC and standard net benefit
-fall while the alert averts more events, a result complementary to Section~3.1
-of \citet{liley2021model}.
+under a heterogeneous one, and that the dashboard metric and patient
+benefit move in antiphase. That observed AUROC falls while the alert averts
+more events is known~\citep{pajouheshnia2017accounting, ansari2025challenges},
+the mirror image of harmful deployments that leave discrimination
+intact~\citep{vanamsterdam2025selffulfilling}; we add that standard net benefit
+turns negative with it, while net benefit against standard care, which the
+randomised arm identifies, stays positive, a result complementary to
+Section~3.1 of \citet{liley2021model}.
 
 %==============================================================================
 \section{Setting}
@@ -260,7 +277,10 @@ $\phi_{P(X)}(v) = 0$ and $\phi_{P(Y|X)}(v) = \Delta R$: the entire performance
 change is attributed to a shift in the outcome mechanism.
 \end{proposition}
 
-\noindent\emph{Consequence.} A developer acting on this attribution retrains
+\noindent\emph{Consequence.} The proposition formalises the observation that an
+effective intervention can make a deployed model look
+decayed~\citep{ansari2025challenges}, and names the mechanism to which a
+monitor books the decay. A developer acting on this attribution retrains
 $f$ on $e_1$ data. The retrained model learns $\E_{e_1}[Y \mid X]$, which
 encodes the benefit of the intervention on the alerted region, lowers risk
 scores there, and on redeployment removes the alerts that produced the benefit.
@@ -298,8 +318,11 @@ $\{P(X), P(Y \mid X, A)\}$ with the policy fixed at $\pi_0$, identified when
 the standard-care responses it needs have support in both environments and
 post-deployment outcomes under $\pi_0$ are observed, as in a randomised
 unalerted arm. The exact identity assigns interactions by a
-policy-last ordering; no residual is omitted. The policy is last because its
-post-deployment value is the decision contrast in the current patient mix.
+policy-last ordering; no residual is omitted. This is an asymmetric Shapley
+value~\citep{frye2020asymmetric} with the orderings restricted to those that
+put the policy last. The restriction encodes the decision, not a causal order:
+the policy's post-deployment value is the decision contrast in the current
+patient mix.
 
 \paragraph{Output.} A three-term decomposition with uncertainty intervals and a
 sensitivity analysis, not a categorical label.
@@ -380,9 +403,15 @@ $|\theta(\tau)|\, \bar F(\tau)$ bounds $|\Theta|$ from below when the effect
 grows with the score and from above when it shrinks.
 \end{proposition}
 
-\noindent\emph{Reading.} Which case applies is a clinical question: the effect
-shrinks above the threshold when standard care already treats most high-score
-patients. In our simulation the curve is neither constant nor monotone: the
+\noindent\emph{Reading.} The first statement is standard regression-discontinuity
+identification, which \citet{gallo2024effectiveness} use to evaluate a deployed
+deterioration alert. The proposition adds the gap between that local effect and
+the two global quantities, and the weight $1 - 2r$ that separates the
+Brier-scale term from the effect on the event rate; closing the gap away from
+the threshold needs assumptions beyond continuity, such as the conditional
+independence of \citet{angrist2015wanna}. Which case applies is a clinical
+question: the effect shrinks above the threshold when standard care already
+treats most high-score patients. In our simulation the curve is neither constant nor monotone: the
 effect strengthens from $-0.34$ just above the threshold to $-0.42$, then
 fades to near zero at high scores, and the local jump overstates the average
 effect among alerted patients by $14\%$ (Appendix~\ref{app:rd}).
@@ -695,7 +724,8 @@ operating point otherwise. Means over 20 independent replicates per cell;
 \paragraph{F6: discrimination and utility move in opposite directions
 (Figure~\ref{fig:utility}).} Across treatment effect and adherence, observed
 post-deployment AUROC falls monotonically (to $0.637$ [$0.636$, $0.638$] at $\theta = 2.5$,
-adherence $0.9$) while events averted rise to $12.2$ [$12.0$, $12.4$] points. Standard
+adherence $0.9$), as expected when treatment follows the
+prediction~\citep{pajouheshnia2017accounting}, while events averted rise to $12.2$ [$12.0$, $12.4$] points. Standard
 decision-curve net benefit computed on observed outcomes falls from
 $+0.056$ [$+0.054$, $+0.057$] to $-0.142$ [$-0.143$, $-0.141$], crossing zero between adherence $0.3$ and
 $0.5$; the counterfactual net benefit, computed against the untreated
@@ -769,9 +799,11 @@ valued by Shapley values and estimated by importance weighting.
 \citet{budhathoki2021rootcauses} attribute a change in a joint distribution to
 changes in its causal mechanisms; \citet{cai2023disde} decompose a performance
 drop into covariate-shift terms and a term for a changed relationship between
-features and outcome; \citet{gordaliza2025causal} apply causal attribution to
-performance gaps in medical imaging. All treat every mechanism as exogenous to
-the audited model.
+features and outcome; \citet{singh2024hierarchical} split a performance gap
+into covariate and outcome-conditional shifts and attribute each to individual
+variables without a causal graph; \citet{gordaliza2025causal} apply causal
+attribution to performance gaps in medical imaging. All treat every mechanism
+as exogenous to the audited model.
 
 \paragraph{Performativity and model updating.} \citet{perdomo2020performative}
 formalise performative prediction, in which a deployed model changes the
@@ -795,26 +827,42 @@ deployment-caused covariate shift that their assumptions exclude.
 for a model whose predictions trigger treatment~\citep{sperrin2018msm, vangeloven2020prediction, lin2021scoping,
 keogh2024prediction, luijken2024estimands}, and several authors warn that a
 successful model can become a victim of its own success~\citep{lenert2019victims,
-sperrin2019explicit, balcarcel2025feedback}. This work targets prediction and
-validation, not the attribution of a monitored change.
+sperrin2019explicit, balcarcel2025feedback}. Treatment use biases
+validation~\citep{pajouheshnia2017accounting}, standard performance metrics do
+not measure the reduction in outcomes a model brings~\citep{schuler2020performance},
+and an accurate model can harm patients through self-fulfilling prophecies
+while its discrimination stays intact~\citep{vanamsterdam2025selffulfilling}.
+This work targets prediction and validation, not the attribution of a
+monitored change.
 
 \paragraph{Monitoring and governance.} \citet{feng2024designing} compare
 monitoring strategies for a deployed algorithm under performativity, across
-monitoring criteria and observational or interventional data. Regulatory and
+monitoring criteria and observational or interventional data. Effective
+interventions confound post-market surveillance and can make a model look
+decayed~\citep{ansari2025challenges}; feedback-aware monitors estimate
+performance by injecting randomisation or by weighting~\citep{corbin2023avoiding,
+kim2025monitoring}, or monitor conditional rather than marginal
+performance~\citep{feng2024monitoring}. Regulatory and
 post-market work analyses device updates~\citep{wu2024regulating}, the
 regulation of devices that evolve~\citep{gonzalez2024regulating} and
 governance infrastructure~\citep{afdideh2026aegis}, and
 \citet{guan2026detecting} detect degradation under data shift.
-These works detect or govern a change; they do not attribute it.
+These works detect, estimate or govern a change; they do not attribute it.
 
-\paragraph{Randomised trials of alerts.} Alerts change care, and their effect on
+\paragraph{Evaluations of deployed alerts.} Alerts change care, and their effect on
 outcomes varies. In a trial that randomised patients at six hospitals, alerts
 for acute kidney injury changed some care processes but not the primary
 outcome~\citep{wilson2021aki}; in a trial that randomised 74 clinical units in
 two health systems, an early warning system built on nursing surveillance data
 lowered in-hospital mortality and length of stay~\citep{rossetti2025concern}.
-Randomising the alert by patient or by unit, as these trials do, is the kind of
-identifying variation that Section~\ref{sec:ident} requires.
+Observational evaluations use the other designs of Section~\ref{sec:ident}: a
+staggered rollout compared patients reaching the alert threshold at hospitals
+where a deterioration alert was live with those at hospitals where it was not
+yet deployed~\citep{escobar2020automated}, and a regression discontinuity at
+the threshold of a deployed deterioration score estimated the alert's local
+effect~\citep{gallo2024effectiveness}. These studies estimate the alert's
+effect on outcomes; Section~\ref{sec:ident} uses the same designs to identify
+its share of a monitored performance change.
 
 %==============================================================================
 \section{Limitations and responsible-use statement}
