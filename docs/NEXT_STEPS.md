@@ -100,6 +100,9 @@ manuscript is updated:
 - Appendix E6: replace `\todo{Numbers and Figure~\ref{fig:mimic}...}` with a
   sentence pointing to Tables `tab:mimic` and `tab:mimic-sens`.
 
+Then `sim2/run_e6.sh publish` commits and pushes the aggregate result files
+and nothing else; `sim2/run_e6.sh all <username>` ends with this step.
+
 **Done when:** the validator passes with the E6 check active (it rejects
 fixture or demo-sized cohorts, open F7 or appendix TODOs, and F7 text without
 the reported numbers), Figure 7 renders, and only the aggregate files printed
