@@ -12,6 +12,7 @@ docs/JOSH_E1_E7_NOTES.md
 docs/E6_MIMIC.md
 docs/SYNTHETIC_HOSPITAL_ASSESSMENT.md
 docs/NEXT_STEPS.md
+docs/status_update/
 requirements-e6.txt
 figures/exp1_results.json
 figures/exp2_results.json
@@ -70,6 +71,7 @@ sim2/exp_prevalence.py
 sim2/make_figure3_E3.py
 sim2/make_figure_E1.py
 sim2/make_figures2.py
+sim2/make_status_update.py
 sim2/make_tables.py
 sim2/make_tables_e7.py
 sim2/merged.py

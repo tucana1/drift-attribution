@@ -85,6 +85,9 @@ def check_h():
                   - g[(s["name"], "untreated_ipw", p["rounds"])]["events_averted_pp"]["mean"]) for s in p["settings"])
     assert gap <= 0.01, f"estimated and logged weights differ by {gap:.3f} points"
     quoted("by at most $0.01$ points in any setting")
+    kept = g[("rate_k2", "naive", p["rounds"])]["events_averted_pp"]["mean"] / g[("rate_k2", "keep", p["rounds"])]["events_averted_pp"]["mean"]
+    assert 0.3 < 1 - kept < 0.37, f"rate-held naive refit under heterogeneity loses {1 - kept:.2f}, not a third"
+    quoted("still loses a third of the benefit")
 
 
 def check_e1():
@@ -204,6 +207,16 @@ def check_e7():
     quoted(f"average policy effect of ${E['policy_effect_alerted']['mean']:.3f}$", "F6 (policy effect)")
     quoted(f"overstates by ${100 * (E['rd_relative_to_policy'] - 1):.0f}\\%$", "F6 (RD gap)")
     quoted(f"(${E['treatment_effect_alerted']['mean']:.3f}$)", "F6 (treatment effect)")
+    # Appendix A and the reading of Proposition 3: shape of the policy-effect curve
+    edges, curve = E["policy_effect_curve"]["bin_edges"], E["policy_effect_curve"]["mean"]
+    centre = [(a + b) / 2 for a, b in zip(edges[:-1], edges[1:])]
+    peak = min(range(len(curve)), key=lambda i: curve[i])
+    near = min(range(len(curve)), key=lambda i: abs(centre[i] - 0.85))
+    flat = next(i for i in range(len(curve)) if all(abs(v) < 0.02 for v in curve[i:]))
+    quoted(f"averaged in {len(curve)} score bins from ${edges[0]:.2f}$ to ${edges[-1]:.2f}$", "Appendix A (bins)")
+    quoted(f"from ${curve[0]:.2f}$ just above the threshold to ${curve[peak]:.2f}$", "Appendix A (curve)")
+    quoted(f"$\\rhat = {centre[peak]:.2f}$", "Appendix A (peak)")
+    quoted(f"fades to ${curve[near]:.2f}$ near ${centre[near]:.2f}$ and to about zero above\n${edges[flat]:.2f}$", "Appendix A (tail)")
 
 
 def check_prevalence_estimators():

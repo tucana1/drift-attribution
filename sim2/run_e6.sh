@@ -8,7 +8,8 @@
 #   sim2/run_e6.sh main               figures/merged_expE6.json and Figure 7
 #   sim2/run_e6.sh sensitivity        tagged appendix runs (effect size, alert rate, periods, COVID era)
 #   sim2/run_e6.sh report             figures, tables, F7 numbers, validator
-#   sim2/run_e6.sh all USER           download, cohort, main, sensitivity, report
+#   sim2/run_e6.sh publish            commit and push the aggregate result files, nothing else
+#   sim2/run_e6.sh all USER           download, cohort, main, sensitivity, report, publish
 #
 # Environment: MIMIC_ROOT (default ~/physionet/mimiciv/$MIMIC_VERSION), MIMIC_VERSION (3.1),
 # WORKERS (4), SENS_REPS_A (100), SENS_REPS_C (30), MEMORY_LIMIT (4GB, DuckDB).
@@ -22,6 +23,8 @@ SENS_REPS_A=${SENS_REPS_A:-100}
 SENS_REPS_C=${SENS_REPS_C:-30}
 MEMORY_LIMIT=${MEMORY_LIMIT:-4GB}
 TABLES="hosp/patients hosp/admissions hosp/transfers hosp/labevents hosp/d_labitems icu/icustays"
+# Result files of main, sensitivity and report: aggregates only. data/ is git-ignored and never added.
+AGGREGATES="figures/merged_expE6*.json figures/fig7_mimic*.pdf aaai/figures/merged_expE6*.json aaai/figures/fig7_mimic*.pdf aaai/tables/e6_*.tex"
 PY=.venv/bin/python
 # PhysioNet answers command-line downloads with a Basic-auth challenge only for wget-style clients
 # (other user agents get the browser 403 page), so curl announces itself as wget-compatible.
@@ -144,9 +147,27 @@ report() {
   "$PY" sim2/e6_report.py
   say "validator (fails on the open F7 TODO until the manuscript is updated with the numbers above)"
   "$PY" sim2/validate_josh_results.py || true
-  say "commit only aggregates"
-  echo "git add figures/merged_expE6*.json figures/fig7_mimic*.pdf aaai/figures/merged_expE6*.json aaai/figures/fig7_mimic*.pdf aaai/tables/e6_*.tex"
+  say "next: sim2/run_e6.sh publish commits and pushes the aggregate files only"
   echo "data/ (cohort, logs, demo) is ignored by git and stays on this machine."
+}
+
+publish() {
+  say "commit and push the aggregate result files; data/ stays on this machine"
+  shopt -s nullglob
+  local files=($AGGREGATES)
+  shopt -u nullglob
+  if [ "${#files[@]}" -eq 0 ]; then
+    echo "no result files yet: run main and report first" >&2
+    exit 1
+  fi
+  git add -- "${files[@]}"
+  if git diff --cached --quiet -- "${files[@]}"; then
+    echo "nothing new to commit"
+    return 0
+  fi
+  git diff --cached --stat -- "${files[@]}"
+  git commit -q -m "E6: MIMIC-IV results (aggregates only)" -- "${files[@]}"
+  git push origin HEAD
 }
 
 case "${1:-}" in
@@ -156,6 +177,7 @@ case "${1:-}" in
   main) main_run ;;
   sensitivity) sensitivity ;;
   report) report ;;
-  all) download "${2:-}"; cohort; main_run; sensitivity; report ;;
-  *) sed -n '2,14p' "$0"; exit 2 ;;
+  publish) publish ;;
+  all) download "${2:-}"; cohort; main_run; sensitivity; report; publish ;;
+  *) sed -n '2,15p' "$0"; exit 2 ;;
 esac
