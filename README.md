@@ -44,18 +44,22 @@ Times are on 4 cores.
 | `merged_expF.json` (first-pass triage) | `python3 sim2/exp_F_triage.py` | 9 s |
 | `exp1_results.json` ... `exp4_rd.json` (first pass, `sim/`) | `python3 sim/exp1_scenarios.py`, `sim/exp2_retrain.py`, `sim/exp3_sweep_exp4_rd.py`; figures `sim/make_figures.py` | under 10 s each |
 | `merged_expE6.json` (MIMIC-IV) | `sim2/run_e6.sh`, on a machine with credentialed access (`docs/E6_MIMIC.md`) | |
+| `merged_expE6_<tag>.json` (MIMIC-IV sensitivity runs) | `sim2/run_e6.sh sensitivity`, same machine | |
 | `e6_open/*.json` (open stand-in) | `sim2/exp_E6_mimic.py` on the `sim2/e6_sepsis_cohort.py` cohort (`docs/E6_MIMIC.md`) | |
 
 `python3 sim2/validate_josh_results.py` fails if a data file in `figures/` has
 no entry in this list (`PRODUCERS` in that script).
 
 Checked on 5 October 2026 by rerunning every simulation command above (all but
-the two E6 rows) in a clean copy
+the E6 rows) in a clean copy
 (about 30 minutes in total): every file reproduces, with numeric differences of
 at most 2e-10 (floating-point rounding in the solvers), and the figures and
 tables rebuilt from the rerun are byte-identical to the committed ones. The
-`open_stand_in` part of `performance_drop.json` is filled only when
-`data/e6_sepsis_cohort.npz` (built from PhysioNet data, not in git) is present.
+`open_stand_in` and `mimic_iv` parts of `performance_drop.json` are computed
+only where `data/e6_sepsis_cohort.npz` and `data/e6_cohort.npz` (built from
+PhysioNet data, not in git) are present; elsewhere the script carries them
+over from the committed file (`sim2/run_e6.sh report` computes the MIMIC-IV
+part).
 
 ## Figures and tables
 

@@ -2,7 +2,7 @@
 \begin{table}[h]
 \centering\scriptsize
 \setlength{\tabcolsep}{3pt}
-\caption{Sign of the S3 change across outcome prevalence, alert rate held at 20\%. Oracle values (expected Brier scores, mean over 4 independent blocks of 400{,}000 patients; Monte Carlo SE below $10^{-4}$). The monitor books the whole change to $P(Y\mid X)$ at every prevalence; only its sign changes.}
+\caption{Sign of the S3 change across outcome prevalence, alert rate held at 20\%. Oracle values (expected Brier scores, mean over 4 independent blocks of 400{,}000 patients; Monte Carlo SE below $10^{-4}$). The monitor books the whole change to $P(Y\mid X)$ at every prevalence; only its sign changes. Last row: deployment only in the semi-synthetic MIMIC-IV experiment (Appendix~\ref{app:mimic}; alert rate 10\%, 69{,}323 held-out early-period admissions), exact in expectation over the simulated components; its monitor term is the mean of the estimator over 200 replicates.}
 \label{tab:prevalence}
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{rrrrrr}
@@ -13,6 +13,8 @@ Event rate & Mean score, alerted & $\Delta R$ & Policy (Shapley) & Monitor $Y|X$
 0.254 & 0.63 & $+$0.0023 & $+$0.0023 & $+$0.0023 & 0.744, 0.697\\
 0.137 & 0.40 & $-$0.0076 & $-$0.0076 & $-$0.0075 & 0.748, 0.707\\
 0.066 & 0.22 & $-$0.0065 & $-$0.0065 & $-$0.0065 & 0.754, 0.719\\
+\midrule
+0.011 & 0.04 & $-$0.0015 & $-$0.0015 & $-$0.0015 & 0.738, 0.696\\
 \bottomrule
 \end{tabular}
 }

@@ -2,10 +2,10 @@
 
 Task E6 in the team to-do: real covariates and outcomes for a deterioration
 task, a simulated alert policy and treatment effect on top, Experiments A and C
-repeated. The code is complete and tested end to end on a synthetic stand-in.
-The figure and numbers for the paper have to be produced by a team member with
-credentialed MIMIC-IV access, on their own machine. `docs/NEXT_STEPS.md` has
-the checklist and the manuscript edits.
+repeated. The credentialed run was done on 28 October 2026 on MIMIC-IV v3.1,
+on the machine that holds the data; the results are below ("Results") and in
+the manuscript (F7, the E6 appendix, the last row of Table `tab:prevalence`).
+`docs/NEXT_STEPS.md` has the checklist.
 
 ## Data use
 
@@ -14,9 +14,10 @@ sharing it with third parties, and PhysioNet's guidance on online services
 extends that to sending it to hosted AI tools. Run the steps below yourself,
 keep the tables and the cohort file outside git (`~/physionet`, `data/`), and
 commit only aggregate outputs: `figures/merged_expE6*.json`,
-`figures/fig7_mimic*.pdf`, their copies in `aaai/figures/` and
-`aaai/tables/e6_*.tex`. These hold summary statistics over thousands of
-admissions and no patient-level rows.
+`figures/fig7_mimic*.pdf`, `figures/performance_drop.json`, their copies in
+`aaai/figures/`, `aaai/tables/e6_*.tex` and `aaai/tables/prevalence.tex`.
+These hold summary statistics over thousands of admissions and no
+patient-level rows.
 
 Every script prints counts, rates and estimates only. One exception needed
 handling: DuckDB quotes the offending CSV row in conversion and parsing errors.
@@ -38,7 +39,7 @@ sim2/run_e6.sh download <physionet-user> # six tables of v3.1 (~3 GB) into ~/phy
 sim2/run_e6.sh cohort                    # data/e6_cohort.npz and the acceptance checks
 sim2/run_e6.sh main                      # figures/merged_expE6.json and Figure 7
 sim2/run_e6.sh sensitivity               # tagged runs for the appendix
-sim2/run_e6.sh report                    # figures, tables, F7 numbers, validator
+sim2/run_e6.sh report                    # performance drop, figures, tables, F7 numbers, validator
 ```
 
 `download` asks for the PhysioNet password once (it goes to a temporary netrc
@@ -62,6 +63,7 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements-e6.txt
 .venv/bin/python sim2/e6_mimic_cohort.py --mimic-root ~/physionet/mimiciv/3.1 --out data/e6_cohort.npz
 .venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_cohort.npz --workers 4
 .venv/bin/python sim2/exp_E6_mimic.py --cohort data/e6_cohort.npz --tag rrr25 --rrr 0.25   # sensitivity runs
+.venv/bin/python sim2/check_performance_drop.py                                   # MIMIC-IV part of performance_drop.json
 .venv/bin/python sim2/make_figures2.py && .venv/bin/python sim2/make_tables.py
 .venv/bin/python sim2/e6_report.py && .venv/bin/python sim2/validate_josh_results.py
 ```
@@ -127,7 +129,10 @@ Experiment B.
   naive refit, refit on A = 0, weighted refit. Events averted are expected
   values on the evaluation pool against its historical outcomes.
 - `--workers` runs replicates in parallel; results do not depend on the worker
-  count. The main run takes about 20 to 40 minutes with 4 workers.
+  count. On an Apple-silicon laptop with 4 workers the main run took under two
+  minutes and the six sensitivity runs about four; the slow step is the
+  download (PhysioNet served about 100 KB/s, about five hours for
+  `labevents`).
 
 ## Sensitivity runs
 
@@ -144,13 +149,21 @@ group (v3.x), `covid` (`--late "2020 - 2022"`), with 100 and 30 replicates.
 - `aaai/tables/e6_mimic.tex` (cohort in the caption, attribution and update
   rules) and `aaai/tables/e6_sensitivity.tex`; the appendix includes both when
   present.
+- The `mimic_iv` part of `figures/performance_drop.json` (Brier score, AUROC,
+  observed over expected events and calibration slope before and after the
+  simulated deployment, on the held-out early-period and the late-period
+  admissions) and the MIMIC-IV row of `aaai/tables/prevalence.tex`. The
+  validator checks that its Brier changes equal the policy contrasts of the
+  main run.
 - `sim2/e6_report.py` prints the numbers F7 quotes, in the exact format the
   validator checks, and a draft of the F7 result sentences whose wording
   follows the sign of the policy term.
 
 ## What to expect
 
-With a 5 to 10% event rate, alerted patients mostly have predicted risk below
+Written before the run and confirmed by it, at a lower event rate than
+assumed here (1.1% before and 1.3% after, mean predicted risk 0.04 among
+alerted patients). With a 5 to 10% event rate, alerted patients mostly have predicted risk below
 0.5. Preventing their events then lowers the Brier score (the derivative of
 E[(r - Y)^2] in P(Y = 1) is 1 - 2r), so the policy term is negative. The score
 still degrades as a model: AUROC falls, and it over-predicts (observed over
@@ -161,6 +174,48 @@ Brier change depends on prevalence (positive at the 40% operating point). The
 attribution question is unchanged (the monitor books the policy term to the
 outcome mechanism); the text should report the drop in discrimination and
 calibration and the sign of the Brier change separately.
+
+## Results (28 October 2026; MIMIC-IV v3.1)
+
+Cohort: 180,910 ward admissions of 89,340 adult patients; 114,952 in
+2008-2013 (event rate 1.10%), 53,647 in 2014-2019 (1.33%) and 12,311 in
+2020-2022 (1.54%). ICU admission within 12 h follows 1.17% of prediction times,
+death 0.05%. All acceptance checks passed. The score (45,629 early-period
+admissions) has AUROC 0.738 on held-out early admissions and 0.741 late; its
+threshold (predicted risk 0.023) flags 9.6% and 9.3%.
+
+- Deployment only. Policy contrast -0.00146. The monitor books -0.00147 to
+  P(Y | X) and nothing to P(X); the randomised arm estimates -0.00144 (bias
+  interval covers zero) but with a single-run SD of 0.0008, half the term. The
+  union graph with oracle weights returns -0.00247, identical replicate by
+  replicate whether the action prevents 25%, 50% or 75% of events: with no
+  treated pre-deployment patient it cannot see the action. AUROC falls 0.738 to
+  0.696, observed over expected 0.98 to 0.83, calibration slope 1.01 to 0.79
+  (`performance_drop.json`, `mimic_iv`).
+- Real drift and deployment. Under historical care the Brier score rises by
+  +0.00229 between the periods; with the alert the observed change is
+  +0.00062, so the alert's benefit (-0.00164) hides 72% of a real
+  deterioration, and with rrr 0.75 or a 20% alert rate the observed change is
+  negative. The proposed decomposition recovers the policy term (-0.00159) and
+  the exogenous change (+0.00220); the monitor assigns -0.00373 to P(Y | X)
+  against -0.00216 in the proposed decomposition. In the late period the score
+  under-predicts under historical care (O/E 1.23) and deployment brings O/E to
+  1.05, hiding the calibration drift too.
+- Split of the exogenous change. Not stable: in the main run each term has a
+  single-run SD of 0.0037 against a total of +0.0023, and with periods by
+  admission year or 2020-2022 as the late period the two terms reach +-0.03 to
+  +-0.08. The total (no density ratio needed) stays within 0.0004 of its
+  target in every run.
+- Update rules, round 8, fixed threshold: keep 0.17, naive 0.18, refit on
+  A = 0 0.22, weighted 0.20 points. Refits recalibrate to the late period,
+  where the original score under-predicts; naive refitting also absorbs the
+  prevented events (alert rate 10.4% against 14.1% for the A = 0 refit) and
+  averts a sixth fewer events than refitting on A = 0. That gap grows with the
+  effect (0.006, 0.038, 0.092 points at rrr 0.25, 0.5, 0.75) and is positive
+  in every run; no run shows the oscillation of the synthetic Experiment C.
+  With the alert rate held, every rule is within 0.01 points of keeping the
+  score in the main run (0.03 across runs). The weighted refit is below the
+  unweighted A = 0 refit in every rate-held run and in six of seven fixed ones.
 
 ## Open stand-in (until MIMIC-IV access)
 

@@ -17,7 +17,7 @@ evidence, the mirrored copies, the generated tables and the quoted numbers.
 | E3 conditioning correction | done, extended; estimated-propensity arm added | `merged_expH.json`, Figure 3, Table `tab:retrain-app` | `exp_H_correction.py`, `make_figure3_E3.py` |
 | E4 robustness | done, intervals added | `merged_expAB_robustness.json`, Table `tab:robustness`, Table `tab:prevalence` | `exp_AB_robustness.py`, `exp_prevalence.py` |
 | E5 persistent-site wedge | done, estimator fixed | `merged_expG2.json`, Table `tab:sites`, Table 1 | `exp_G2_sites.py` |
-| E6 MIMIC-IV semi-synthetic | code complete, runner ready; needs the credentialed run | `docs/E6_MIMIC.md` | `run_e6.sh`, `e6_mimic_cohort.py`, `exp_E6_mimic.py`, `e6_report.py`, `e6_fixture.py` |
+| E6 MIMIC-IV semi-synthetic | done 28 October 2026 (MIMIC-IV v3.1), main and six sensitivity runs | `merged_expE6.json`, `merged_expE6_<tag>.json`, Figure 7 (`fig7_mimic.pdf`), Tables `tab:mimic`, `tab:mimic-sens`, last row of `tab:prevalence`, `docs/E6_MIMIC.md` | `run_e6.sh`, `e6_mimic_cohort.py`, `exp_E6_mimic.py`, `e6_report.py`, `e6_fixture.py` |
 | E7 intervals and harm | done; RD and net-benefit comparisons corrected; low-prevalence A added | `merged_expE7.json`, `merged_expE7_prev.json`, Figures 1, 2, 5, 6, Tables `tab:coverage`, `tab:positivity-ci`, `tab:harm`, `tab:prevalence-est` | `exp_E7_intervals.py`, `make_figures2.py` |
 
 ## What changed from the first pass, and why
@@ -91,9 +91,9 @@ eps = 0 the union-graph interval excludes its target at every n up to
 removes about a sixth of the deployment benefit and changes no ranking.
 
 **E6 (new).** Pipeline complete and tested end to end on a synthetic stand-in
-with the MIMIC-IV table layout. The results need a local run on credentialed
-data; see `docs/E6_MIMIC.md`. The manuscript has the section, the simulated
-components list, the figure slot and a TODO for the numbers.
+with the MIMIC-IV table layout. The credentialed run followed on 28 October
+2026 (MIMIC-IV v3.1); F7 and the E6 appendix report it, and
+`docs/E6_MIMIC.md` ("Results") summarises it.
 
 ## Second pass (30 September)
 
@@ -225,7 +225,8 @@ E6 has its own runner, `sim2/run_e6.sh` (`docs/E6_MIMIC.md`).
 The handoff for the next worker, with commands, checks and acceptance
 criteria, is `docs/NEXT_STEPS.md`.
 
-- E6 numbers and Figure 7: run `sim2/run_e6.sh` on credentialed data.
+- E6: done 28 October 2026; confirm the cohort's ward-unit list and commit
+  the result files (`docs/NEXT_STEPS.md`, section 1).
 - Team decisions: prevalence framing (W1, W7), the E1 headline rule, logging
   requirements, the prospective column of the identification table, and the
   threshold-discontinuity appendix (`docs/NEXT_STEPS.md`, section 2).
