@@ -10,7 +10,12 @@ operating point and the prevalence grid of exp_prevalence.py (alert rate 20%).
 Open stand-in (if data/e6_sepsis_cohort.npz exists): each hospital as the
 deployment site, score fitted to 40% of its patients, 10% alert rate, an alert
 acted upon with probability 0.85 that prevents the event with probability 0.5,
-metrics on the held-out patients. Writes figures/performance_drop.json.
+metrics on the held-out patients. MIMIC-IV (if data/e6_cohort.npz exists, as
+built by sim2/e6_mimic_cohort.py): the same deployment as the E6 main run, on
+the held-out early-period patients and on the late period. The cohort files
+stay on the machine that holds the data, so a part whose file is absent is
+carried over from the existing figures/performance_drop.json. Writes
+figures/performance_drop.json.
 
 Discrimination and calibration fall at every prevalence; the Brier score rises
 at the calibrated operating point and falls at low prevalence, where preventing
@@ -19,6 +24,7 @@ error more than the miscalibration raises it.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -83,11 +89,42 @@ def open_stand_in(path=ROOT / "data/e6_sepsis_cohort.npz", p_prevent=0.85 * 0.5,
     return rows
 
 
+def mimic_iv(path=ROOT / "data/e6_cohort.npz", p_prevent=0.85 * 0.5, alert_rate=0.1, min_admissions=5000):
+    """E6 main-run deployment: score fitted to 40% of early-period patients, applied to the other pools."""
+    if not path.exists():
+        return None
+    from exp_E6_mimic import EARLY, LATE, MIMIC, Cohort
+    c = Cohort(path, list(EARLY), list(LATE), 0.4)
+    if c.synthetic or c.source != MIMIC or len(c.y) < min_admissions:
+        print(f"{path.name} is not a full MIMIC-IV cohort (fixture or demo): MIMIC-IV part not computed")
+        return None
+    model = LogisticRegression(C=1.0, max_iter=5000).fit(c.x[c.model_train], c.y[c.model_train])
+    tau = float(np.quantile(model.predict_proba(c.x[c.model_train])[:, 1], 1 - alert_rate))
+    rows = []
+    for pool_name, pool in (("early period, held out", c.early & ~c.model_train), ("late period", c.late)):
+        f, y = model.predict_proba(c.x[pool])[:, 1], c.y[pool]
+        rows.append({"pool": pool_name, "admissions": int(pool.sum()), "tau": tau,
+                     "alert_rate": float(np.mean(f > tau)), "mean_score_alerted": float(f[f > tau].mean()),
+                     **before_after(f, y, y * (1 - p_prevent * (f > tau)))})
+    return rows
+
+
+def previous(part):
+    """A part as last written (its cohort file lives only on the machine that built it)."""
+    path = ROOT / "figures/performance_drop.json"
+    old = json.loads(path.read_text()).get(part) if path.exists() else None
+    if old is not None:
+        print(f"{part}: cohort file not present here, carried over from figures/performance_drop.json")
+    return old
+
+
 def main():
-    out = {"design": __doc__.split("\n\n")[1].replace("\n", " "), "synthetic": synthetic(), "open_stand_in": open_stand_in()}
+    out = {"design": __doc__.split("\n\n")[2].replace("\n", " "), "synthetic": synthetic(),
+           "open_stand_in": open_stand_in() or previous("open_stand_in"), "mimic_iv": mimic_iv() or previous("mimic_iv")}
     write_json("performance_drop.json", out)
-    for r in out["synthetic"] + (out["open_stand_in"] or []):
-        label = r.get("setting") or f"open stand-in, hospital {r['deployment_site']}"
+    for r in out["synthetic"] + (out["open_stand_in"] or []) + (out["mimic_iv"] or []):
+        label = (r.get("setting") or (f"MIMIC-IV, {r['pool']}" if "pool" in r else None)
+                 or f"open stand-in, hospital {r['deployment_site']}")
         ch = r["change"]
         print(f"{label:34s} event rate {r['before']['event_rate']:.3f}  Brier {ch['brier']:+.4f}  AUROC {ch['auroc']:+.3f}  "
               f"O/E {r['before']['observed_over_expected']:.2f} -> {r['after']['observed_over_expected']:.2f}  "

@@ -7,7 +7,7 @@
 #   sim2/run_e6.sh cohort             data/e6_cohort.npz, with the acceptance checks of NEXT_STEPS 1.4
 #   sim2/run_e6.sh main               figures/merged_expE6.json and Figure 7
 #   sim2/run_e6.sh sensitivity        tagged appendix runs (effect size, alert rate, periods, COVID era)
-#   sim2/run_e6.sh report             figures, tables, F7 numbers, validator
+#   sim2/run_e6.sh report             performance drop, figures, tables, F7 numbers, validator
 #   sim2/run_e6.sh publish            commit and push the aggregate result files, nothing else
 #   sim2/run_e6.sh all USER           download, cohort, main, sensitivity, report, publish
 #
@@ -24,7 +24,8 @@ SENS_REPS_C=${SENS_REPS_C:-30}
 MEMORY_LIMIT=${MEMORY_LIMIT:-4GB}
 TABLES="hosp/patients hosp/admissions hosp/transfers hosp/labevents hosp/d_labitems icu/icustays"
 # Result files of main, sensitivity and report: aggregates only. data/ is git-ignored and never added.
-AGGREGATES="figures/merged_expE6*.json figures/fig7_mimic*.pdf aaai/figures/merged_expE6*.json aaai/figures/fig7_mimic*.pdf aaai/tables/e6_*.tex"
+AGGREGATES="figures/merged_expE6*.json figures/fig7_mimic*.pdf aaai/figures/merged_expE6*.json aaai/figures/fig7_mimic*.pdf aaai/tables/e6_*.tex
+            figures/performance_drop.json aaai/figures/performance_drop.json aaai/tables/prevalence.tex"
 PY=.venv/bin/python
 # PhysioNet answers command-line downloads with a Basic-auth challenge only for wget-style clients
 # (other user agents get the browser 403 page), so curl announces itself as wget-compatible.
@@ -141,6 +142,8 @@ sensitivity() {
 
 report() {
   venv
+  say "performance drop on the MIMIC-IV cohort (figures/performance_drop.json)"
+  "$PY" sim2/check_performance_drop.py
   say "figures, tables, F7 numbers"
   "$PY" sim2/make_figures2.py
   "$PY" sim2/make_tables.py

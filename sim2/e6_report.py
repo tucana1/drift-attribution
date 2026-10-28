@@ -17,8 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def brier_digits(d):
-    """Four decimals as elsewhere in the paper, five when the deployment-only policy term is below 1e-3."""
-    return 4 if abs(d["A"]["truth"]["deploy_only"]["pi"]) >= 1e-3 else 5
+    """Four decimals as elsewhere in the paper, five when the deployment-only policy term is below 1e-2.
+
+    At four decimals a term near 0.0015 keeps two significant digits, and an unbiased estimate can print a
+    unit away from its target (-0.0014 against -0.0015).
+    """
+    return 4 if abs(d["A"]["truth"]["deploy_only"]["pi"]) >= 1e-2 else 5
 
 
 def value(v, digits, sign=True):

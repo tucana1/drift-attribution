@@ -275,6 +275,12 @@ def check_e6():
     for name in tagged:
         check_e6_run(name, load(name))
         same_figure(name.replace("merged_expE6", "fig7_mimic").replace(".json", ".pdf"))
+    drop = {r["pool"]: r for r in load("performance_drop.json").get("mimic_iv") or []}
+    if drop:
+        # same cohort, score and threshold as the main run: the exact Brier change is the policy contrast
+        for pool, sc in (("early period, held out", "deploy_only"), ("late period", "drift_and_deploy")):
+            close(drop[pool]["change"]["brier"], d["A"]["truth"][sc]["pi"], 1e-12)
+            assert drop[pool]["admissions"] == d["A"]["truth"][sc]["n_post"], f"performance_drop.json: {pool} pool"
     assert "\\todo{Results from \\texttt{merged\\_expE6.json}" not in TEX, "F7 TODO still open after the E6 run"
     assert "\\todo{Numbers and Figure~\\ref{fig:mimic}" not in TEX, "Appendix E6 TODO still open after the E6 run"
     for label, text in quotes(d).items():
@@ -346,6 +352,8 @@ PRODUCERS = {
     "merged_expE7_prev.json": "sim2/exp_E7_intervals.py --parts A --b0 -3.5 --alert-rate 0.2 --root-seed 2026092917 "
                               "--workers 6 --output merged_expE7_prev.json",
     "merged_expE6.json": "sim2/run_e6.sh (credentialed MIMIC-IV, local only)",
+    **{f"merged_expE6_{tag}.json": f"sim2/run_e6.sh sensitivity (tag {tag}; credentialed MIMIC-IV, local only)"
+       for tag in ("rrr25", "rrr75", "alert05", "alert20", "admyear", "covid")},
     "e6_open/merged_expE6_sepsis2019_AtoB.json": "sim2/exp_E6_mimic.py on sim2/e6_sepsis_cohort.py output "
                                                  "(docs/E6_MIMIC.md)",
     "e6_open/merged_expE6_sepsis2019_BtoA.json": "sim2/exp_E6_mimic.py on sim2/e6_sepsis_cohort.py output "

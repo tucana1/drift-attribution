@@ -192,16 +192,39 @@ def table_e5():
 
 
 # ----------------------------------------------------------------------------- prevalence
+def mimic_prevalence_row():
+    """Deployment-only MIMIC-IV run in the columns of the prevalence table, or None before the E6 run.
+
+    Exact values from performance_drop.json (held-out early-period admissions, same score, threshold and
+    simulated action as the E6 main run); the monitor's term is the E6 estimator mean.
+    """
+    e6, drop = load("merged_expE6.json"), load("performance_drop.json")
+    rows = {r["pool"]: r for r in (drop or {}).get("mimic_iv") or []}
+    if e6 is None or "early period, held out" not in rows:
+        return None
+    r, S = rows["early period, held out"], e6["A"]["summary"]["deploy_only"]
+    pi = e6["A"]["truth"]["deploy_only"]["pi"]
+    cells = (f"{r['before']['event_rate']:.3f} & {r['mean_score_alerted']:.2f} & {fmt(r['change']['brier'], 4, sign=True)} & "
+             f"{fmt(pi, 4, sign=True)} & {fmt(S['monitor_Ygx']['mean'], 4, sign=True)} & "
+             f"{r['before']['auroc']:.3f}, {r['after']['auroc']:.3f}\\\\")
+    note = (f" Last row: deployment only in the semi-synthetic MIMIC-IV experiment (Appendix~\\ref{{app:mimic}}; alert "
+            f"rate {100 * r['alert_rate']:.0f}\\%, {thousands(r['admissions'])} held-out early-period admissions), exact in "
+            "expectation over the simulated components; its monitor term is the mean of the estimator over "
+            f"{e6['parameters']['reps_a']} replicates.")
+    return cells, note
+
+
 def table_prevalence():
     d = load("merged_expP.json")
     if d is None:
         return
+    mimic = mimic_prevalence_row()
     lines = ["\\begin{table}[h]", "\\centering\\scriptsize", "\\setlength{\\tabcolsep}{3pt}",
              "\\caption{Sign of the S3 change across outcome prevalence, alert rate held at "
              f"{100 * d['parameters']['alert_rate']:.0f}\\%. Oracle values (expected Brier scores, mean over "
              f"{d['parameters']['blocks']} independent blocks of " + f"{d['parameters']['n']:,}".replace(",", "{,}") +
              " patients; Monte Carlo SE below $10^{-4}$). The monitor books the whole change to $P(Y\\mid X)$ at "
-             "every prevalence; only its sign changes.}",
+             "every prevalence; only its sign changes." + (mimic[1] if mimic else "") + "}",
              "\\label{tab:prevalence}", "\\resizebox{\\columnwidth}{!}{%", "\\begin{tabular}{rrrrrr}", "\\toprule",
              "Event rate & Mean score, alerted & $\\Delta R$ & Policy (Shapley) & Monitor $Y|X$ & AUROC before, after\\\\",
              "\\midrule"]
@@ -210,6 +233,8 @@ def table_prevalence():
                      f"{fmt(r['dR']['mean'], 4, sign=True)} & {fmt(r['policy_shapley']['mean'], 4, sign=True)} & "
                      f"{fmt(r['monitor_Ygx']['mean'], 4, sign=True)} & {r['auroc_before']['mean']:.3f}, "
                      f"{r['auroc_after']['mean']:.3f}\\\\")
+    if mimic:
+        lines += ["\\midrule", mimic[0]]
     lines += ["\\bottomrule", "\\end{tabular}", "}", "\\end{table}"]
     write("prevalence", lines)
 
@@ -304,8 +329,9 @@ def table_e6(d=None):
     names = ("deploy_only", "drift_only", "drift_and_deploy")
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
              f"\\caption{{Semi-synthetic MIMIC-IV. Cohort: {thousands(c['admissions'])} ward admissions of "
-             f"{thousands(c['patients'])} adult patients; event rate {100 * c['event_rate_early']:.1f}\\% in {years(p['early'])} and "
-             f"{100 * c['event_rate_late']:.1f}\\% in {years(p['late'])}; score AUROC "
+             f"{thousands(c['patients'])} adult patients, of which {thousands(c['admissions_early'])} in {years(p['early'])} "
+             f"(event rate {100 * c['event_rate_early']:.1f}\\%) and {thousands(c['admissions_late'])} in {years(p['late'])} "
+             f"({100 * c['event_rate_late']:.1f}\\%); score AUROC "
              f"{c['score_auroc_early_heldout']:.3f} on held-out early patients and {c['score_auroc_late']:.3f} in the "
              f"late period; alert rate {100 * c['alert_rate_late']:.1f}\\% in the late period at the fixed threshold. "
              f"Top: attribution of the Brier-score change, mean over {p['reps_a']} replicates with 95\\% bootstrap "
@@ -345,18 +371,22 @@ def table_e6_sensitivity(runs=None):
     from e6_report import brier_digits, final_round
     k = min(brier_digits(d) for _, _, d in rows)
     lines = ["\\begin{table*}[t]", "\\centering\\scriptsize",
-             "\\caption{Semi-synthetic MIMIC-IV, sensitivity runs. Deployment-only attribution (policy contrast, its randomised-arm estimate and "
-             "the monitor's $P(Y\\mid X)$ term, Brier units) and events averted at the last round under the fixed "
-             "threshold (percentage points). Means with 95\\% bootstrap intervals over replicates; the main analysis "
-             "uses an alert rate of 10\\%, an action that prevents the event with probability 0.5 and periods by "
-             "anchor year group.}", "\\label{tab:mimic-sens}", "\\begin{tabular}{lccccc}", "\\toprule",
-             "Setting & Policy contrast & Proposed $\\pi$ & Monitor $P(Y\\mid X)$ & Keep & Naive refit\\\\", "\\midrule"]
+             "\\caption{Semi-synthetic MIMIC-IV, sensitivity runs. Deployment-only attribution (policy contrast, its "
+             "randomised-arm estimate, the union-graph estimate with oracle policy weights and the monitor's "
+             "$P(Y\\mid X)$ term, Brier units) and events averted at the last round under the fixed threshold "
+             "(percentage points). Means with 95\\% bootstrap intervals over replicates (the union-graph intervals are "
+             "narrower than the last digit); the main analysis uses an alert rate of 10\\%, an action that prevents "
+             "the event with probability 0.5 and periods by anchor year group.}", "\\label{tab:mimic-sens}",
+             "\\resizebox{\\textwidth}{!}{%", "\\begin{tabular}{lccccccc}", "\\toprule",
+             "Setting & Policy contrast & Proposed $\\pi$ & Union graph & Monitor $P(Y\\mid X)$ & Keep & Naive refit & "
+             "Refit on $A{=}0$\\\\", "\\midrule"]
     for _, label, d in rows:
         S, T, r8 = d["A"]["summary"]["deploy_only"], d["A"]["truth"]["deploy_only"], final_round(d)
         lines.append(f"{label} & {fmt(T['pi'], k, sign=True)} & {brier_ci(S['proposed_pi'], k)} & "
+                     f"{fmt(S['union_pi']['mean'], k, sign=True)} & "
                      f"{brier_ci(S['monitor_Ygx'], k)} & {fmt(r8['keep']['events_averted_pp']['mean'], 2)} & "
-                     f"{ci_or_value(r8['naive']['events_averted_pp'])}\\\\")
-    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
+                     f"{ci_or_value(r8['naive']['events_averted_pp'])} & {ci_or_value(r8['untreated']['events_averted_pp'])}\\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "}", "\\end{table*}"]
     write("e6_sensitivity", lines)
 
 

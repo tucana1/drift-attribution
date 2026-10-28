@@ -25,7 +25,7 @@ from matplotlib.path import Path as MPath
 ROOT = Path(__file__).resolve().parents[1]
 FIG = ROOT / "figures"
 OUT = ROOT / "docs" / "status_update"
-DATE = "23 October 2026"
+DATE = "28 October 2026"
 
 # Reference palette, light surface. Categorical slots 1-3 pass the colour-vision
 # and normal-vision checks for every pair; aqua sits below 3:1 on the surface, so
@@ -41,7 +41,7 @@ GOOD, WARN, CRIT = "#0ca30c", "#fab219", "#d03b3b"
 SYMBOLS = "DejaVu Sans"              # has the check and cross glyphs
 
 plt.rcParams.update({
-    "font.family": ["Liberation Sans", "DejaVu Sans"], "font.size": 11,
+    "font.family": ["Liberation Sans", "Arial", "DejaVu Sans"], "font.size": 11,       # Arial: same metrics, on macOS
     "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
     "axes.edgecolor": AXIS, "axes.linewidth": 0.8, "axes.labelcolor": INK2, "axes.labelsize": 11,
     "axes.spines.top": False, "axes.spines.right": False,
@@ -141,9 +141,15 @@ def arrow(ax, p0, p1, color=MUTED, dashed=False, lw=1.4, rad=0.0):
                                  connectionstyle=f"arc3,rad={rad}", shrinkA=0, shrinkB=0, zorder=1))
 
 
+def mimic_run():
+    """The credentialed MIMIC-IV run (aggregates only), or None until someone with access has run it."""
+    return load("merged_expE6.json") if (FIG / "merged_expE6.json").exists() else None
+
+
 def figure_workflow():
     stand_in = load("e6_open/merged_expE6_sepsis2019_AtoB.json")["cohort"]["admissions"]
     todo = (ROOT / "aaai/drift_attribution_aaai.tex").read_text().count("\\todo{")
+    mimic_d = mimic_run()
     fig = plt.figure(figsize=(13.333, 7.85))
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0, 100)
@@ -155,8 +161,10 @@ def figure_workflow():
             color=INK, va="top")
     ax.text(2, 53.5, "The question: when clinicians act on a hospital AI alert, the model's measured accuracy changes. "
                      "Does monitoring blame the right cause?\n"
-                     f"Status on {DATE}: all the simulation work is done and reproducible. "
-                     "Still missing: MIMIC-IV, the real hospital data.",
+                     f"Status on {DATE}: " + ("every experiment is done and reproducible, including the run on "
+                                              "MIMIC-IV hospital records." if mimic_d else
+                                              "all the simulation work is done and reproducible. "
+                                              "Still missing: MIMIC-IV, the real hospital data."),
             fontsize=12.5, color=INK2, va="top", linespacing=1.45)
     for x, status, label in ((70.5, "done", "Done"), (78.2, "partial", "Partly done"),
                              (88.2, "missing", "Missing or blocked")):
@@ -170,18 +178,23 @@ def figure_workflow():
          ("the true answer is known, so", "each method can be checked"))
     node(ax, 2, 12.0, 19, 7.4, "Public ICU data",
          ("PhysioNet 2019 sepsis challenge,", f"2 hospitals, {stand_in:,} ICU stays"))
-    mimic = node(ax, 2, 0.9, 19, 9.0, "MIMIC-IV data", ("real hospital records; needs",
-                                                         "approved access, must run on",
-                                                         "our own computers; script ready"),
-                 status="missing", alert=True)
-    fig.canvas.draw()
-    right = mimic.get_window_extent(fig.canvas.get_renderer()).transformed(ax.transData.inverted()).x1
-    pill_x, pill_w, pill_y = right + 0.8, 5.3, 9.9 - 1.55
-    assert pill_x + pill_w <= 2 + 19 - 0.5, "MISSING pill does not fit beside the title"
-    ax.add_patch(FancyBboxPatch((pill_x, pill_y - 0.8), pill_w, 1.6, boxstyle="round,pad=0,rounding_size=0.45",
-                                facecolor=CRIT, edgecolor="none", zorder=4))
-    ax.text(pill_x + pill_w / 2, pill_y, "MISSING", fontsize=9, fontweight="bold", color=WHITE, ha="center",
-            va="center", zorder=5)
+    if mimic_d:
+        node(ax, 2, 0.9, 19, 9.0, "MIMIC-IV data", ("real hospital records:",
+                                                    f"{mimic_d['cohort']['admissions']:,} ward admissions;",
+                                                    "run on our own computer"))
+    else:
+        mimic = node(ax, 2, 0.9, 19, 9.0, "MIMIC-IV data", ("real hospital records; needs",
+                                                             "approved access, must run on",
+                                                             "our own computers; script ready"),
+                     status="missing", alert=True)
+        fig.canvas.draw()
+        right = mimic.get_window_extent(fig.canvas.get_renderer()).transformed(ax.transData.inverted()).x1
+        pill_x, pill_w, pill_y = right + 0.8, 5.3, 9.9 - 1.55
+        assert pill_x + pill_w <= 2 + 19 - 0.5, "MISSING pill does not fit beside the title"
+        ax.add_patch(FancyBboxPatch((pill_x, pill_y - 0.8), pill_w, 1.6, boxstyle="round,pad=0,rounding_size=0.45",
+                                    facecolor=CRIT, edgecolor="none", zorder=4))
+        ax.text(pill_x + pill_w / 2, pill_y, "MISSING", fontsize=9, fontweight="bold", color=WHITE, ha="center",
+                va="center", zorder=5)
 
     # experiments
     boxes = (("Which cause gets the blame?", "A, B · E7", "standard monitoring vs our method", "done"),
@@ -189,7 +202,8 @@ def figure_workflow():
              ("Keep or retrain?", "E1", "does knowing the cause help decide?", "done"),
              ("Triage and staged rollout", "F · E5", "alert changes who is seen; 48 sites", "done"),
              ("Stress tests", "E4", "more variables; outcome rates 7% to 40%", "done"),
-             ("Real hospital data", "E6", "public data done; MIMIC-IV run blocked", "partial"))
+             ("Real hospital data", "E6", "public ICU data and MIMIC-IV done" if mimic_d else
+              "public data done; MIMIC-IV run blocked", "done" if mimic_d else "partial"))
     centers = []
     for i, (title, tag, detail, status) in enumerate(boxes):
         top = 46.0 - 7.2 * i
@@ -201,8 +215,11 @@ def figure_workflow():
     arrow(ax, (21.0, 28.6), (24.5, 28.6))
     # real-data inputs feed experiment 6
     arrow(ax, (21.0, 16.1), (25.9, 8.4), rad=0.0)
-    arrow(ax, (21.0, 4.4), (25.9, 5.2), color=CRIT, dashed=True, lw=1.6)
-    ax.text(23.4, 3.2, "blocked", fontsize=9.5, color=INK2, style="italic", ha="center")
+    if mimic_d:
+        arrow(ax, (21.0, 4.4), (25.9, 5.2))
+    else:
+        arrow(ax, (21.0, 4.4), (25.9, 5.2), color=CRIT, dashed=True, lw=1.6)
+        ax.text(23.4, 3.2, "blocked", fontsize=9.5, color=INK2, style="italic", ha="center")
 
     # collector bus into the result files
     for c in centers:
@@ -225,12 +242,15 @@ def figure_workflow():
                                 edgecolor=AXIS, lw=1.0, zorder=2))
     ax.text(x0 + 1.2, y0 + h - 1.7, "Draft paper", fontsize=12, fontweight="bold", color=INK, va="center")
     ax.text(x0 + 1.2, y0 + h - 3.7, "AAAI-27 workshop, due about 20 Nov", fontsize=10, color=INK2, va="center")
-    items = (("done", ["Results section written: 6 of", "7 findings, all with error bars"]),
-             ("done", ["Existing references checked"]),
-             ("missing", ["Finding 7 (real hospital data)", "waits on the MIMIC-IV run"]),
-             ("partial", ["Still to write: abstract, intro,", "theory and proofs, related",
-                          "work, responsible use"]),
-             ("partial", ["A few references still to add"]))
+    items = ((("done", ["Results section written: all 7", "findings, all with error bars"]),
+              ("done", ["Existing references checked"]),
+              ("done", ["Finding 7 (real hospital data)", "from the MIMIC-IV run"])) if mimic_d else
+             (("done", ["Results section written: 6 of", "7 findings, all with error bars"]),
+              ("done", ["Existing references checked"]),
+              ("missing", ["Finding 7 (real hospital data)", "waits on the MIMIC-IV run"])))
+    items += (("partial", ["Still to write: abstract, intro,", "theory and proofs, related",
+                           "work, responsible use"]),
+              ("partial", ["A few references still to add"]))
     y = y0 + h - 7.2
     for status, lines in items:
         badge(ax, x0 + 1.9, y, status, r=0.8)
@@ -240,11 +260,14 @@ def figure_workflow():
     ax.text(x0 + 1.2, y0 + 1.4, f"{todo} TODO notes left in the draft", fontsize=9.5, color=MUTED, va="center")
     arrow(ax, (77.0, 27.3), (79.9, 27.3))
     arrow(ax, (77.0, 13.9), (79.9, 13.9))
-    ax.text(97.5, 2.2, "The main simulations use one hospital setup (the stress tests vary it); with the public data, "
-                       "only the alert and its effect are simulated.", fontsize=9, color=MUTED, ha="right")
+    ax.text(97.5, 2.2, "The main simulations use one hospital setup (the stress tests vary it); with the "
+                       + ("real data" if mimic_d else "public data") + ", only the alert and its effect are simulated.",
+            fontsize=9, color=MUTED, ha="right")
     save(fig, "01_workflow.png")
     CAPTIONS.append((
         "01_workflow.png",
+        "Every experiment is done, including the run on MIMIC-IV hospital records, which stayed on our own computer "
+        "(only summary numbers left it); what is left is writing." if mimic_d else
         "All the simulation work is done; the one missing piece (red) is the MIMIC-IV run, which needs someone "
         "with approved access to the data to run our script on their own computer."))
 
@@ -270,6 +293,8 @@ def attribution_chart(name, panels, title, subtitle, source, xlabel, digits, lab
     span = hi - lo
     # room for a value label beyond the bar end on each side that has labelled bars
     xlim = (lo - (0.24 if lo < -label_min / 2 else 0.03) * span, hi + (0.2 if hi > label_min / 2 else 0.12) * span)
+    while (xlim[1] - xlim[0]) / tick_step > 7:          # signed tick labels need room in a half-width panel
+        tick_step *= 2
     # notes at zero go on the side of the axis with more room
     side = 1 if hi >= -lo else -1
     at_zero = dict(va="center", ha="left" if side > 0 else "right", color=MUTED)
@@ -351,33 +376,52 @@ def figure_attribution():
 
 
 def figure_real_covariates():
+    mimic_d = mimic_run()
+    sources = ((("merged_expE6.json", "MIMIC-IV wards"), ("e6_open/merged_expE6_sepsis2019_AtoB.json",
+                                                          "Public ICU data, hospital A")) if mimic_d else
+               (("e6_open/merged_expE6_sepsis2019_AtoB.json", "Hospital A"),
+                ("e6_open/merged_expE6_sepsis2019_BtoA.json", "Hospital B")))
     panels, rows = [], {}
-    for tag, ptitle in (("AtoB", "Hospital A"), ("BtoA", "Hospital B")):
-        d = load(f"e6_open/merged_expE6_sepsis2019_{tag}.json")
+    for name, ptitle in sources:
+        d = load(name)
         t, s = d["A"]["truth"]["deploy_only"], d["A"]["summary"]["deploy_only"]
-        truth = [t["pi"], 0.0, 0.0]        # one hospital split at random: no real change in X or Y | X
+        truth = [t["pi"], 0.0, 0.0]        # one period or hospital split at random: no real change in X or Y | X
         mon = [None, s["monitor_Ygx"]["mean"], s["monitor_X"]["mean"]]
         pro = [s["proposed_pi"]["mean"], s["proposed_Y"]["mean"], s["proposed_X"]["mean"]]
         err = [[None] * 3, [None, s["monitor_Ygx"]["ci95"], s["monitor_X"]["ci95"]],
                [s["proposed_pi"]["ci95"], s["proposed_Y"]["ci95"], s["proposed_X"]["ci95"]]]
         panels.append((ptitle, [truth, mon, pro], err))
-        rows[tag] = (truth, mon, pro, d["cohort"])
-    ca = rows["AtoB"][3]
-    attribution_chart(
-        "08_real_covariates.png", panels,
-        "The same mistake on real patient data (public stand-in for MIMIC-IV)",
-        "Real ICU patients and outcomes from two hospitals; only the alert and its effect are simulated.\nHere the "
-        "alert lowers prediction error, and standard monitoring credits that to lower underlying risk.",
-        f"Source: figures/e6_open/ · PhysioNet 2019 challenge, {ca['admissions']:,} ICU stays, sepsis in "
-        f"{100 * ca['event_rate_early']:.1f}% (A) and {100 * ca['event_rate_late']:.1f}% (B) · thin lines: 95% "
-        "intervals",
-        "change in prediction error (lower = better)", 4, 0.0008, 0.001)
+        rows[name] = (truth, mon, pro, d["cohort"])
     for truth, mon, pro, _ in rows.values():
         assert truth[0] < 0 and mon[1] < 0 and pro[0] < 0, "the captions describe this pattern"
-    CAPTIONS.append((
-        "08_real_covariates.png",
-        "On real ICU patients from two hospitals with a simulated alert (a public stand-in until the MIMIC-IV run), "
-        "standard monitoring again mistakes the alert's effect for a change in risk, while our method gets it right."))
+    ca = rows["e6_open/merged_expE6_sepsis2019_AtoB.json"][3]
+    if mimic_d:
+        cm = mimic_d["cohort"]
+        title = "The same mistake on real hospital records (MIMIC-IV)"
+        subtitle = ("Real patients and outcomes: MIMIC-IV ward admissions (left) and public ICU data (right); only "
+                    "the alert and its\neffect are simulated. The alert lowers prediction error, and standard "
+                    "monitoring credits that to lower underlying risk.")
+        source = (f"Source: figures/merged_expE6.json · MIMIC-IV, {cm['admissions']:,} ward admissions, events in "
+                  f"{100 * cm['event_rate_early']:.1f}% · figures/e6_open/ · PhysioNet 2019, {ca['admissions']:,} ICU "
+                  "stays · thin lines: 95% intervals")
+        caption = ("On real hospital records (MIMIC-IV ward admissions) and on public ICU data, with a simulated "
+                   "alert, standard monitoring mistakes the alert's effect for a change in risk, while our method "
+                   "gets it right.")
+    else:
+        title = "The same mistake on real patient data (public stand-in for MIMIC-IV)"
+        subtitle = ("Real ICU patients and outcomes from two hospitals; only the alert and its effect are simulated.\n"
+                    "Here the alert lowers prediction error, and standard monitoring credits that to lower underlying "
+                    "risk.")
+        source = (f"Source: figures/e6_open/ · PhysioNet 2019 challenge, {ca['admissions']:,} ICU stays, sepsis in "
+                  f"{100 * ca['event_rate_early']:.1f}% (A) and {100 * ca['event_rate_late']:.1f}% (B) · thin lines: "
+                  "95% intervals")
+        caption = ("On real ICU patients from two hospitals with a simulated alert (a public stand-in until the "
+                   "MIMIC-IV run), standard monitoring again mistakes the alert's effect for a change in risk, while "
+                   "our method gets it right.")
+    # five decimals with MIMIC-IV, whose terms (about 0.0015) print a unit apart at four
+    attribution_chart("08_real_covariates.png", panels, title, subtitle, source,
+                      "change in prediction error (lower = better)", 5 if mimic_d else 4, 0.0008, 0.001)
+    CAPTIONS.append(("08_real_covariates.png", caption))
 
 
 # ----------------------------------------------------------------------------- 3 more data
@@ -634,6 +678,20 @@ def figure_prevalence():
 
 
 # ----------------------------------------------------------------------------- captions
+def mimic_post():
+    """Status paragraph once the MIMIC-IV run exists; every number is read from merged_expE6.json."""
+    d = mimic_run()
+    c, T = d["cohort"], d["A"]["truth"]
+    exo, pi = T["drift_and_deploy"]["exogenous"], T["drift_and_deploy"]["pi"]
+    assert exo > 0 > pi and -pi < exo, "the paragraph describes this pattern"
+    return (f"All the experiments are done, including the run on MIMIC-IV hospital records "
+            f"({c['admissions']:,} ward admissions), which ran on our own computer and saved only summary "
+            "numbers. On real patients with a simulated alert, standard monitoring again credits the alert's "
+            "effect to lower underlying risk, and between 2008-13 and 2014-19 the alert's benefit hid "
+            f"{-pi / exo:.0%} of a real rise in prediction error. What is left is writing the remaining "
+            "sections of the draft.")
+
+
 def write_captions():
     order = sorted(CAPTIONS)
     lines = [f"# Status update, {DATE}", "",
@@ -644,6 +702,7 @@ def write_captions():
              "is broken, and we show that standard monitoring blames the wrong cause, while our method gets it right "
              "by holding the alert back for a random group of patients.",
              "",
+             mimic_post() if mimic_run() else
              "All the simulation experiments are done; the one missing piece is MIMIC-IV, real hospital records that "
              "someone with approved PhysioNet access needs to run through `sim2/run_e6.sh all <username>` on their "
              "own computer (about 3 GB to download, 20 to 40 minutes to run, and only summary numbers are saved).",
